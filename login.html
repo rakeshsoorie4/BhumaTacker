@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in — Ledgerwatch</title>
+<meta name="description" content="Sign in to Ledgerwatch, a watch-only crypto portfolio tracker.">
+<meta name="theme-color" content="#0d1017">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e0a64a'/%3E%3Cpath d='M9 22V10h3v9.4h7V22z' fill='%231a1306'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #f4f5f8; --surface: #ffffff; --surface-2: #f8f9fb; --ink: #121624; --muted: #626a80; --faint: #8b92a6; --line: #e3e6ee;
+  --accent: #b7791f; --accent-ink: #ffffff; --accent-soft: #b7791f1f; --up: #158a57; --down: #c8402b; --down-soft: #c8402b14;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1017; --surface: #151a24; --surface-2: #1a2030; --ink: #eceef5; --muted: #9aa2b8; --faint: #6d7590; --line: #252c3c;
+    --accent: #e0a64a; --accent-ink: #1a1306; --accent-soft: #e0a64a24; --up: #45c486; --down: #f07a66; --down-soft: #f07a6614; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1017; --surface: #151a24; --surface-2: #1a2030; --ink: #eceef5; --muted: #9aa2b8; --faint: #6d7590; --line: #252c3c;
+  --accent: #e0a64a; --accent-ink: #1a1306; --accent-soft: #e0a64a24; --up: #45c486; --down: #f07a66; --down-soft: #f07a6614; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Left: product pitch with a preview of the dashboard */
+.pitch { position: relative; overflow: hidden; padding: 48px clamp(24px, 5vw, 64px); display: flex; flex-direction: column; justify-content: space-between; gap: 40px; background: linear-gradient(160deg, #141a27, #0b0e15); color: #eceef5; }
+.pitch::before { content: ""; position: absolute; width: 560px; height: 560px; right: -180px; top: -160px; background: radial-gradient(closest-side, #e0a64a33, transparent); }
+.brand { position: relative; display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 700; font-size: 20px; }
+.mark { width: 32px; height: 32px; border-radius: 9px; background: #e0a64a; color: #1a1306; display: grid; place-items: center; }
+.mark svg { width: 19px; height: 19px; }
+.pitch h1 { position: relative; font-family: var(--f-display); font-size: clamp(32px, 4vw, 48px); line-height: 1.05; letter-spacing: -0.03em; margin: 0 0 14px; max-width: 14ch; }
+.pitch h1 em { font-style: normal; color: #e0a64a; }
+.pitch p.lead { position: relative; color: #a7aec2; font-size: 16px; max-width: 42ch; margin: 0; }
+.feats { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 28px; max-width: 560px; }
+.feat { border: 1px solid #ffffff14; background: #ffffff08; border-radius: 12px; padding: 12px; }
+.feat b { display: block; font-family: var(--f-display); font-size: 22px; color: #fff; }
+.feat span { font-size: 12.5px; color: #a7aec2; }
+
+.preview { position: relative; border: 1px solid #ffffff14; background: #151a24; border-radius: 16px; padding: 18px; max-width: 560px; box-shadow: 0 30px 60px #0007; }
+.preview .k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #8d95ab; font-weight: 600; }
+.preview .v { font-family: var(--f-display); font-weight: 700; font-size: 34px; letter-spacing: -0.03em; }
+.preview .v span { color: #6d7590; }
+.preview .pill { display: inline-block; font-family: var(--f-mono); font-size: 12px; color: #45c486; background: #45c4861f; border-radius: 999px; padding: 2px 9px; }
+.preview svg.line { display: block; width: 100%; height: 90px; margin-top: 10px; }
+.prow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #252c3c; font-size: 13px; }
+.prow:first-of-type { margin-top: 8px; }
+.prow i { width: 24px; height: 24px; border-radius: 50%; flex: none; }
+.prow b { flex: 1; font-weight: 600; }
+.prow span { font-family: var(--f-mono); color: #c9cede; }
+.prow em { font-style: normal; font-family: var(--f-mono); font-size: 12px; width: 56px; text-align: right; }
+.preview .tag { position: absolute; top: 14px; right: 14px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #8d95ab; border: 1px solid #ffffff1a; border-radius: 5px; padding: 1px 6px; }
+
+/* Right: sign-in card */
+.side { display: grid; place-items: center; padding: 40px 20px; }
+.card { width: min(400px, 100%); display: flex; flex-direction: column; gap: 22px; }
+.card h2 { font-family: var(--f-display); font-size: 28px; letter-spacing: -0.02em; margin: 0; }
+.card .sub { color: var(--muted); margin: 6px 0 0; }
+.gbtn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 15px var(--f-body); cursor: pointer; box-shadow: 0 1px 2px #0000000f; transition: border-color .15s, transform .05s; }
+.gbtn:hover { border-color: var(--faint); }
+.gbtn:active { transform: translateY(1px); }
+.gbtn[disabled] { opacity: .65; cursor: progress; }
+.gbtn svg { width: 20px; height: 20px; flex: none; }
+.gbtn .spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.msg { font-size: 13.5px; border-radius: 10px; padding: 10px 12px; margin: 0; background: var(--down-soft); color: var(--down); border: 1px solid color-mix(in srgb, var(--down) 30%, transparent); }
+.setup { font-size: 13.5px; border-radius: 12px; padding: 14px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.setup b { display: block; margin-bottom: 4px; }
+.setup code { font-family: var(--f-mono); font-size: 12.5px; }
+.points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13.5px; color: var(--muted); }
+.points li { display: flex; gap: 10px; align-items: flex-start; }
+.points svg { flex: none; width: 17px; height: 17px; color: var(--up); margin-top: 2px; }
+.fine { font-size: 12px; color: var(--faint); border-top: 1px solid var(--line); padding-top: 16px; margin: 0; }
+.mobile-brand { display: none; }
+
+@media (max-width: 880px) {
+  body { grid-template-columns: minmax(0, 1fr); }
+  .pitch { display: none; }
+  .mobile-brand { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 700; font-size: 20px; }
+  .side { place-items: start center; padding-top: 12vh; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<section class="pitch" aria-hidden="true">
+  <div class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5v14h11"/><path d="M11 14l3-4 2 2 3-5"/></svg></span>Ledgerwatch</div>
+  <div>
+    <h1>Every wallet. <em>One number.</em></h1>
+    <p class="lead">Track Bitcoin, Ethereum, Solana, stablecoins and more across 30+ networks. Paste a public address and see live balances in rupees or dollars.</p>
+    <div class="feats">
+      <div class="feat"><b>30+</b><span>networks supported</span></div>
+      <div class="feat"><b>₹ / $</b><span>live INR & USD prices</span></div>
+      <div class="feat"><b>0</b><span>private keys needed</span></div>
+    </div>
+  </div>
+  <div class="preview">
+    <span class="tag">Preview</span>
+    <div class="k">Net worth</div>
+    <div class="v">₹12,48,560<span>.40</span></div>
+    <span class="pill">▲ ₹18,240.10 (1.48%) · 24H</span>
+    <svg class="line" viewBox="0 0 300 90" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#45c486" stop-opacity=".35"/><stop offset="1" stop-color="#45c486" stop-opacity="0"/></linearGradient></defs><path d="M0 62 L20 58 L40 64 L60 50 L80 54 L100 44 L120 48 L140 36 L160 42 L180 30 L200 34 L220 24 L240 28 L260 18 L280 22 L300 10 L300 90 L0 90Z" fill="url(#g)"/><path d="M0 62 L20 58 L40 64 L60 50 L80 54 L100 44 L120 48 L140 36 L160 42 L180 30 L200 34 L220 24 L240 28 L260 18 L280 22 L300 10" fill="none" stroke="#45c486" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+    <div class="prow"><i style="background:#e8891a"></i><b>BTC</b><span>₹6,84,200</span><em style="color:#45c486">+1.9%</em></div>
+    <div class="prow"><i style="background:#5b6bd6"></i><b>ETH</b><span>₹3,92,110</span><em style="color:#f07a66">−0.6%</em></div>
+    <div class="prow"><i style="background:#26a17b"></i><b>USDT</b><span>₹1,72,250</span><em style="color:#8d95ab">0.0%</em></div>
+  </div>
+</section>
+
+<main class="side">
+  <div class="card">
+    <div class="mobile-brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5v14h11"/><path d="M11 14l3-4 2 2 3-5"/></svg></span>Ledgerwatch</div>
+    <div>
+      <h2>Welcome back</h2>
+      <p class="sub">Sign in to see your portfolio. Your wallets are saved to your account and follow you to any device.</p>
+    </div>
+
+    <div class="setup" id="setup" hidden>
+      <b>Firebase isn't connected yet</b>
+      Paste your project's config into <code>firebase-config.js</code>, then reload. Steps are in <code>SETUP.md</code>.
+    </div>
+
+    <button type="button" class="gbtn" id="google">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+      <span id="gtxt">Continue with Google</span>
+    </button>
+    <p class="msg" id="msg" role="alert" hidden></p>
+
+    <ul class="points">
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Watch-only. We only ever store public addresses, never seed phrases or private keys.</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Only you can see your wallet list.</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Balances come straight from public blockchain nodes.</li>
+    </ul>
+    <p class="fine">By continuing you agree that Ledgerwatch is a tracking tool, not financial advice.</p>
+  </div>
+</main>
+
+<script type="module">
+  import { configured, whenUser, googleSignIn, redirectResult } from "./auth.js";
+  const btn = document.getElementById("google"), txt = document.getElementById("gtxt"), msg = document.getElementById("msg");
+  const busy = on => {
+    btn.disabled = on;
+    btn.querySelector("svg").style.display = on ? "none" : "";
+    let s = btn.querySelector(".spin");
+    if (on && !s) { s = document.createElement("i"); s.className = "spin"; btn.prepend(s); }
+    if (!on && s) s.remove();
+    txt.textContent = on ? "Signing in…" : "Continue with Google";
+  };
+  const go = () => location.replace("./");
+  const friendly = e => ({
+    "auth/popup-closed-by-user": "The sign-in window was closed before finishing. Try again.",
+    "auth/cancelled-popup-request": "",
+    "auth/unauthorized-domain": "This site's domain isn't allowed yet. Add it in Firebase → Authentication → Settings → Authorized domains.",
+    "auth/network-request-failed": "Couldn't reach Google. Check your connection and try again.",
+    "auth/operation-not-allowed": "Google sign-in isn't turned on yet. Enable it in Firebase → Authentication → Sign-in method.",
+  }[e.code] ?? ("Sign-in failed: " + (e.code || e.message)));
+
+  if (!configured) {
+    document.getElementById("setup").hidden = false;
+    btn.disabled = true;
+  } else {
+    busy(true);
+    try {
+      if (await redirectResult()) go();            // coming back from a redirect sign-in
+      else if (await whenUser()) go();             // already signed in
+      else busy(false);
+    } catch (e) { busy(false); const t = friendly(e); if (t) { msg.textContent = t; msg.hidden = false; } }
+
+    btn.addEventListener("click", async () => {
+      msg.hidden = true; busy(true);
+      try { if (await googleSignIn()) go(); }
+      catch (e) { busy(false); const t = friendly(e); if (t) { msg.textContent = t; msg.hidden = false; } }
+    });
+  }
+</script>
+</body>
+</html>

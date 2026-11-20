@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each signed-in user can only see and change their own wallets
+    match /users/{uid}/wallets/{walletId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["chain", "addr", "label", "createdAt"])
+        && request.resource.data.chain is string && request.resource.data.chain.size() <= 20
+        && request.resource.data.addr is string && request.resource.data.addr.size() <= 128
+        && request.resource.data.label is string && request.resource.data.label.size() <= 60;
+    }
+    // Everything else is closed
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

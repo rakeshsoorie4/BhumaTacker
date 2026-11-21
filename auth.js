@@ -46,7 +46,11 @@ export function walletStore(uid) {
   const col = collection(db, "users", uid, "wallets");
   return {
     async list() {
-      const snap = await getDocs(query(col, orderBy("createdAt")));
+      // Firestore can retry silently for a long time (offline, database not created, blocked); give up after 12s
+      const snap = await Promise.race([
+        getDocs(query(col, orderBy("createdAt"))),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore didn't respond within 12s")), 12000)),
+      ]);
       return snap.docs.map(d => ({ id: d.id, chain: d.get("chain"), addr: d.get("addr"), label: d.get("label") || "" }));
     },
     add: w => setDoc(doc(col, w.id), { chain: w.chain, addr: w.addr, label: w.label || "", createdAt: serverTimestamp() }),

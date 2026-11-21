@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ledgerwatch — Crypto portfolio tracker</title>
-<meta name="description" content="Watch-only crypto portfolio tracker. Add public wallet addresses across 30+ networks and see live balances, prices and performance.">
+<meta name="description" content="Watch-only crypto portfolio tracker. Add public wallet addresses across 50+ networks and see live balances, prices and performance.">
 <meta name="theme-color" content="#0d1017">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e0a64a'/%3E%3Cpath d='M9 22V10h3v9.4h7V22z' fill='%231a1306'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -90,6 +90,25 @@ header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srg
 .hfoot b { color: var(--ink); font-weight: 600; font-family: var(--f-mono); font-size: 12px; }
 .hempty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px; }
 
+/* Market-cap mix: segmented bar + legend, tooltip lists the top tokens in a tier */
+.capmix { position: relative; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+.cmhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cmbar { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: var(--chip); }
+.cmbar span { flex: 1 1 0; min-width: 4px; cursor: pointer; transition: opacity .15s; }
+.cmleg { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.cmleg button { border: 0; background: none; padding: 4px 6px; margin: -4px -6px; border-radius: 8px; display: flex; gap: 8px; align-items: flex-start; text-align: left; transition: opacity .15s, background .15s; }
+.cmleg button:hover, .cmleg button.on { background: var(--chip); }
+.cmleg .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; }
+.cmleg b { display: block; font-size: 13px; font-weight: 600; }
+.cmleg .num { display: block; font-size: 12px; color: var(--muted); }
+.capmix.act .cmbar span:not(.on), .capmix.act .cmleg button:not(.on) { opacity: .35; }
+.cmtip { position: absolute; z-index: 5; width: 220px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px #0004; padding: 10px 12px; font-size: 13px; pointer-events: none; }
+.cmtip .th { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.cmtip .tr { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 5px 0; }
+.cmtip .tr b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmtip .tr .num { color: var(--muted); font-size: 12px; }
+.cmtip .tn { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; font-size: 12px; color: var(--muted); }
+
 /* Stat tiles */
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .stat { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
@@ -106,7 +125,7 @@ header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srg
 
 /* Holdings card */
 .hold .chead { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.hold h2, .panel h2 { font-family: var(--f-display); font-weight: 700; font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+.hold h2, .panel h2, .movers h2 { font-family: var(--f-display); font-weight: 700; font-size: 17px; margin: 0; letter-spacing: -0.01em; }
 .hold .chead .l { display: flex; align-items: center; gap: 14px; }
 .ahead, .arow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.25fr) 112px minmax(0, 1.35fr) minmax(0, 1.2fr) 120px; gap: 14px; align-items: center; padding: 11px 16px; }
 .ahead, .lhead { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; border-bottom: 1px solid var(--line); padding-block: 9px; }
@@ -124,7 +143,112 @@ header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srg
 .mini span { display: block; height: 100%; border-radius: 3px; }
 .val { font-weight: 600; }
 .only-m { display: none; }
+
+/* Chains view: one row per network, expandable to the coins held on it */
+.chhead, .chrow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr) 64px minmax(0, 1fr); gap: 14px; align-items: center; padding: 11px 16px; }
+.chhead { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; border-bottom: 1px solid var(--line); padding-block: 9px; }
+.chgrp + .chgrp { border-top: 1px solid var(--line); }
+.chrow { width: 100%; border: 0; background: none; text-align: left; }
+.chrow:hover { background: var(--surface-2); }
+.chrow .a-who { gap: 10px; }
+.chev { flex: none; width: 14px; height: 14px; color: var(--faint); transition: transform .15s; }
+.chrow[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ink); }
+.share { display: flex; align-items: center; gap: 10px; }
+.share .mini { flex: 1; }
+.share .num { flex: none; width: 52px; text-align: right; font-size: 12.5px; }
+.chtoks { background: var(--surface-2); border-top: 1px solid var(--line); padding: 2px 0; }
+.trow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: center; padding: 8px 16px 8px 64px; }
+.trow + .trow { border-top: 1px dashed var(--line); }
+.trow.th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; padding-block: 7px 3px; }
+.trow .a-who { gap: 10px; }
+/* Assets view: click a coin to see which addresses hold it */
+.agrp + .agrp { border-top: 1px solid var(--line); }
+button.arow { width: 100%; border: 0; background: none; text-align: left; }
+.arow .a-who { gap: 10px; }
+.arow[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ink); }
+.ahead > div:first-child { padding-left: 24px; }
+.hrow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 1fr) 64px; gap: 14px; align-items: center; padding: 8px 16px 8px 48px; }
+.hrow + .hrow { border-top: 1px dashed var(--line); }
+.hrow.th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; padding-block: 7px 3px; }
+.hrow .a-who { gap: 10px; }
+.hrow .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.hrow .h-amt .sub { font-size: 11.5px; }
 @media (max-width: 760px) { .only-m { display: block; } }
+
+/* Transactions: one block per address, Nansen-style transfer table inside */
+.txtools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.txtools select { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 6px 10px; font-size: 13px; font-weight: 600; max-width: 230px; }
+.txkeys { padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); display: grid; gap: 10px; font-size: 13px; }
+.txkeys .kr { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; font-weight: 600; color: var(--muted); }
+.txkeys input { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; font-family: var(--f-mono); font-size: 12.5px; width: 100%; }
+.txkeys input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.txkeys .go { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.txkeys a { color: var(--accent); }
+.txgrp + .txgrp { border-top: 1px solid var(--line); }
+.txgh { width: 100%; border: 0; background: none; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; }
+.txgh:hover { background: var(--surface-2); }
+.txgh .a-who { gap: 10px; }
+.txgh .mono { font-family: var(--f-mono); font-size: 12px; }
+.txgh .sum { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; justify-content: flex-end; }
+.txgh[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ink); }
+.txhead, .txrow { display: grid; grid-template-columns: 26px 96px minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(0, 1.45fr) minmax(0, .9fr) 66px 30px; gap: 10px; align-items: center; padding: 7px 16px; font-size: 13px; }
+.txhead { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 600; padding-block: 7px; background: var(--surface-2); border-top: 1px solid var(--line); }
+.txrow { border-top: 1px dashed var(--line); }
+.txrow:hover { background: var(--surface-2); }
+.txrow.spam { opacity: .55; }
+.txrow .icon { padding: 4px; }
+.act { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 6px; padding: 2px 8px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+.act.in { background: var(--up-soft); color: var(--up); }
+.act.out { background: var(--down-soft); color: var(--down); }
+.tag.spamtag { margin-left: 5px; background: var(--down-soft); color: var(--down); }
+.party { display: block; font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.party.me { color: var(--ink); }
+.party b { font-family: var(--f-body); font-weight: 600; }
+.txamt { display: flex; align-items: center; justify-content: flex-end; gap: 7px; min-width: 0; }
+.txamt .num { white-space: nowrap; }
+.txamt .tsym { font-weight: 600; font-size: 12.5px; min-width: 42px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.txnote { padding: 8px 16px; font-size: 12px; color: var(--warn); }
+.txnote.err { color: var(--down); }
+.txmore { padding: 8px 16px 12px; display: flex; justify-content: center; }
+.only-s { display: none; }
+@media (max-width: 900px) {
+  .txhead, .txrow { grid-template-columns: 92px minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 1fr) 62px 30px; }
+  .txhead .x-chain, .txrow .x-chain, .txhead .x-from, .txrow .x-from { display: none; }
+}
+@media (max-width: 600px) {
+  .txhead, .txrow { grid-template-columns: 84px minmax(0, 1fr) minmax(0, auto) 28px; gap: 8px; }
+  .txhead .x-to, .txrow .x-to, .txhead .x-time, .txrow .x-time { display: none; }
+  .only-s { display: block; }
+  .txkeys .kr { grid-template-columns: minmax(0, 1fr); }
+  .txtools select { max-width: 150px; }
+}
+
+/* Gainers & losers: heat map (tile size = value gained/lost, colour = % move) or ranked list */
+.movers .mhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.movers .mhead .l { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.mtools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.switch { position: relative; display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch span { width: 32px; height: 18px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line); position: relative; transition: background .15s, border-color .15s; }
+.switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--faint); transition: transform .15s, background .15s; }
+.switch input:checked + span { background: var(--up-soft); border-color: var(--up); }
+.switch input:checked + span::after { transform: translateX(14px); background: var(--up); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tmap { position: relative; height: 320px; margin: 12px 16px 4px; }
+.tile { position: absolute; border: 2px solid var(--surface); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; text-align: center; color: var(--ink); padding: 2px; line-height: 1.15; font-size: var(--fs); }
+.tile b { font-family: var(--f-mono); font-weight: 600; white-space: nowrap; }
+.tile span { font-size: .72em; white-space: nowrap; }
+.tile .pc { opacity: .8; font-size: .6em; }
+.mvlist { padding: 2px 0; }
+.mvrow { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 2fr) minmax(0, 1fr); gap: 14px; align-items: center; padding: 9px 16px; }
+.mvrow + .mvrow { border-top: 1px solid var(--line); }
+.mvrow .a-who { gap: 10px; }
+.mvbar { height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+.mvbar span { display: block; height: 100%; border-radius: 4px; }
+.mfoot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding: 8px 16px 12px; }
+.mleg { display: inline-flex; align-items: center; gap: 6px; }
+.mleg i { width: 64px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--down), var(--surface-2), var(--up)); border: 1px solid var(--line); }
+@media (max-width: 760px) { .tmap { height: 240px; } .mvrow { grid-template-columns: minmax(0, 1fr) 70px minmax(0, auto); } }
 
 /* Wallet rows */
 .lhead, .row { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.4fr) minmax(0, 1.1fr) 84px; gap: 12px; align-items: center; padding: 12px 16px; }
@@ -216,6 +340,8 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ahead, .arow { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.2fr) 90px minmax(0, 1.3fr); }
   .ahead .c-alloc, .arow .c-alloc, .ahead .c-hold, .arow .c-hold { display: none; }
+  .hrow { grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 1fr) 64px; }
+  .hrow .h-net { display: none; }
 }
 @media (max-width: 760px) {
   .charts { grid-template-columns: minmax(0, 1fr); }
@@ -225,6 +351,12 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   .arow { grid-template-columns: minmax(0, 1fr) 64px minmax(0, auto); }
   .arow .c-price { display: none; }
   .lhead { display: none; }
+  .chhead .c-share, .chrow .c-share { display: none; }
+  .chhead, .chrow { grid-template-columns: minmax(0, 1fr) 52px minmax(0, auto); }
+  .trow { grid-template-columns: minmax(0, 1fr) minmax(0, auto); padding-left: 40px; }
+  .trow .t-hold, .trow .t-price { display: none; }
+  .hrow { grid-template-columns: minmax(0, 1fr) minmax(0, auto) 64px; padding-left: 28px; }
+  .hrow .h-net, .hrow .h-amt, .hrow .h-share { display: none; }
   .row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who acts" "bal val"; row-gap: 8px; }
   .row .c-who { grid-area: who; } .row .c-bal { grid-area: bal; text-align: left; align-items: flex-start; } .row .c-val { grid-area: val; } .row .c-acts { grid-area: acts; }
 }
@@ -239,6 +371,108 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   .brand .bn { display: none; }
   .tools { gap: 6px; }
 }
+
+/* ================= Visual polish ================= */
+:root {
+  --glow-a: #e0a64a2e; --glow-b: #6e54ff14; --glow-c: #1a9e8f14;
+  --grad-accent: linear-gradient(135deg, #f0b95c, #d9822b);
+  --card-hi: #ffffffcc; --ring: #12162414;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --glow-a: #e0a64a1c; --glow-b: #6e54ff24; --glow-c: #1a9e8f1c; --card-hi: #ffffff0f; --ring: #ffffff0a; }
+}
+:root[data-theme="dark"] { --glow-a: #e0a64a1c; --glow-b: #6e54ff24; --glow-c: #1a9e8f1c; --card-hi: #ffffff0f; --ring: #ffffff0a; }
+
+body {
+  background:
+    radial-gradient(900px 520px at 12% -8%, var(--glow-a), transparent 70%),
+    radial-gradient(800px 600px at 100% 10%, var(--glow-b), transparent 70%),
+    radial-gradient(700px 500px at 50% 110%, var(--glow-c), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+  background-image: radial-gradient(var(--ring) 1px, transparent 1px); background-size: 22px 22px;
+  mask-image: linear-gradient(180deg, #000, transparent 60%); -webkit-mask-image: linear-gradient(180deg, #000, transparent 60%);
+}
+::selection { background: var(--accent-soft); color: var(--ink); }
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+/* Header */
+header.top { border-bottom-color: transparent; }
+header.top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--line) 20%, color-mix(in srgb, var(--accent) 45%, var(--line)) 50%, var(--line) 80%, transparent); }
+.brand .mark { background: var(--grad-accent); color: #1a1306; box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent), inset 0 1px 0 #ffffff59; }
+.brand .bn { background: linear-gradient(90deg, var(--ink), color-mix(in srgb, var(--ink) 60%, var(--accent))); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* Buttons */
+.btn { transition: border-color .15s, background .15s, transform .1s, box-shadow .15s; }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--grad-accent); border-color: transparent; color: #1a1306; box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 #ffffff59; }
+.btn.primary:hover { filter: brightness(1.07); box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 45%, transparent), inset 0 1px 0 #ffffff59; }
+.seg button { transition: background .15s, color .15s; }
+.seg button[aria-pressed="true"] { background: var(--grad-accent); color: #1a1306; box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent); }
+.tabs button { transition: background .15s, color .15s; }
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-pressed="true"] { box-shadow: 0 1px 3px #0000001f, inset 0 0 0 1px var(--line); }
+
+/* Cards */
+.card {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--ink) 1%), var(--surface));
+  box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow);
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.hold h2, .panel h2, .movers h2 { display: flex; align-items: center; gap: 9px; }
+.hold h2::before, .panel h2::before, .movers h2::before { content: ""; width: 4px; height: 16px; border-radius: 2px; background: var(--grad-accent); }
+
+/* Hero */
+.hero { padding: 26px 26px 16px; border-color: color-mix(in srgb, var(--accent) 22%, var(--line)); }
+.hero::before { inset: -55% -12% auto auto; width: 560px; height: 560px; background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 22%, transparent), transparent); }
+.hero::after { content: ""; position: absolute; left: -160px; bottom: -220px; width: 460px; height: 460px; background: radial-gradient(closest-side, var(--glow-b), transparent); pointer-events: none; }
+.hero > * { position: relative; }
+.hero .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
+.hero .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.hero .value { background: linear-gradient(180deg, var(--ink) 30%, color-mix(in srgb, var(--ink) 65%, var(--accent))); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; padding-bottom: 2px; }
+.hero .value .dec { -webkit-text-fill-color: var(--faint); }
+.pill { box-shadow: inset 0 0 0 1px currentColor; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent); }
+
+/* Stat tiles: colour-coded accent line + soft corner glow */
+.stat { position: relative; overflow: hidden; padding: 16px 18px; --sc: var(--accent); }
+.stat:nth-child(1) { --sc: var(--up); }
+.stat:nth-child(2) { --sc: var(--down); }
+.stat:nth-child(3) { --sc: var(--accent); }
+.stat:nth-child(4) { --sc: #3d8fe0; }
+.stat::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, var(--sc), transparent 85%); }
+.stat::after { content: ""; position: absolute; right: -40px; top: -40px; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--sc) 16%, transparent), transparent); pointer-events: none; }
+.stat:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--sc) 35%, var(--line)); box-shadow: inset 0 1px 0 var(--card-hi), 0 10px 28px color-mix(in srgb, var(--sc) 14%, transparent); }
+.stat .k { text-transform: uppercase; letter-spacing: .07em; font-size: 11px; }
+.stat .v { font-size: 17px; }
+
+/* Rows */
+.arow, .row, .chrow, .mvrow { transition: background .15s; position: relative; }
+.arow:hover::before, .row:hover::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+.coin { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--line); }
+.mini span, .mvbar span { background-image: linear-gradient(90deg, #ffffff00, #ffffff40); }
+.tile { transition: filter .15s; }
+.tile:hover { filter: brightness(1.12) saturate(1.1); z-index: 1; }
+
+/* Dialog + menus */
+dialog { box-shadow: inset 0 1px 0 var(--card-hi), 0 30px 80px #0006; }
+dialog[open] { animation: pop .22s cubic-bezier(.2, .9, .3, 1.2); }
+.umenu { animation: pop .16s ease-out; transform-origin: top right; }
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+.toast { animation: pop .2s ease-out; box-shadow: 0 10px 30px #0004; }
+
+/* Staggered entrance once signed in */
+html:not(.authing) .wrap > * { animation: rise .55s cubic-bezier(.2, .8, .2, 1) both; }
+html:not(.authing) .wrap > *:nth-child(2) { animation-delay: .06s; }
+html:not(.authing) .wrap > *:nth-child(3) { animation-delay: .12s; }
+html:not(.authing) .wrap > *:nth-child(4) { animation-delay: .18s; }
+html:not(.authing) .wrap > *:nth-child(5) { animation-delay: .24s; }
+html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -278,15 +512,33 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     </div>
     <div class="hchart"><canvas id="ch-hero" aria-label="Portfolio value over time"></canvas><div class="hempty" id="heroempty">Add a wallet to see your portfolio over time.</div></div>
     <div class="hfoot"><span>High <b id="hi">—</b></span><span>Low <b id="lo">—</b></span><span id="rangenote">Based on current holdings at past prices</span></div>
+    <div class="capmix" id="capmix" hidden></div>
   </section>
 
   <section class="stats" id="stats" aria-label="Highlights"></section>
+
+  <section class="card movers" aria-label="Gainers and losers">
+    <div class="mhead">
+      <div class="l"><h2>Gainers &amp; Losers</h2><span class="hint" id="mvnet"></span></div>
+      <div class="mtools">
+        <label class="switch"><input type="checkbox" id="mvmap"><span></span>Heat map</label>
+        <div class="tabs" role="group" aria-label="Gainers and losers period">
+          <button type="button" data-mv="24h">24H</button>
+          <button type="button" data-mv="7d">7D</button>
+          <button type="button" data-mv="30d">30D</button>
+        </div>
+      </div>
+    </div>
+    <div id="movers"></div>
+    <div class="mfoot" id="mvfoot"></div>
+  </section>
 
   <section class="card hold">
     <div class="chead">
       <div class="l"><h2 id="holdtitle">Assets</h2>
         <div class="tabs" role="group" aria-label="View">
           <button type="button" data-view="assets">Assets</button>
+          <button type="button" data-view="chains">Chains</button>
           <button type="button" data-view="wallets">Wallets</button>
         </div>
       </div>
@@ -296,10 +548,36 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
       <div class="ahead"><div>Asset</div><div class="r c-price">Price / 24h</div><div class="c-spark">Last 7 days</div><div class="r c-hold">Holdings</div><div class="r">Value</div><div class="r c-alloc">Allocation</div></div>
       <div id="assets"></div>
     </div>
+    <div id="pane-chains" hidden>
+      <div class="chhead"><div>Chain</div><div class="c-share">Share</div><div class="r">Coins</div><div class="r">Value</div></div>
+      <div id="chains"></div>
+    </div>
     <div id="pane-wallets" hidden>
       <div class="lhead"><div>Wallet</div><div class="r">Balance</div><div class="r">Value</div><div></div></div>
       <div id="rows"></div>
     </div>
+  </section>
+
+  <section class="card hold" id="txcard" aria-label="Transactions">
+    <div class="chead">
+      <div class="l"><h2>Transactions</h2><span class="hint" id="txhint"></span></div>
+      <div class="txtools">
+        <select id="txw" aria-label="Wallet"></select>
+        <select id="txn" aria-label="Network"></select>
+        <label class="switch" title="Hide zero-value transfers and tokens that aren't on any trusted token list"><input type="checkbox" id="txspam"><span></span>Hide spam</label>
+        <button type="button" class="btn sq" id="txkeysbtn" title="History data sources" aria-label="History data sources" aria-expanded="false" aria-controls="txkeys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/></svg></button>
+        <button type="button" class="btn sq" id="txcsv" title="Download as CSV" aria-label="Download as CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button>
+        <button type="button" class="btn sq" id="txreload" title="Reload transactions" aria-label="Reload transactions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+      </div>
+    </div>
+    <div class="txkeys" id="txkeys" hidden>
+      <p class="sub" style="margin:0">Optional. BNB Chain, Ethereum, Base, Arbitrum, OP, Polygon and most others load with no key. A free Etherscan key adds Linea, Sonic, Berachain, HyperEVM, Monad, Sei and Mantle. Keys are saved only in this browser.</p>
+      <label class="kr"><span>Etherscan API key</span><input id="txk-es" type="password" autocomplete="off" spellcheck="false" placeholder="Free key from etherscan.io/apis"></label>
+      <label class="kr"><span>Moralis API key</span><input id="txk-moralis" type="password" autocomplete="off" spellcheck="false" placeholder="Paid plans only. Leave empty unless you already have one"></label>
+      <div class="go"><span class="sub">Free Etherscan key: <a href="https://etherscan.io/apis" target="_blank" rel="noopener">etherscan.io/apis</a></span><button type="button" class="btn primary" id="txkeysave">Save &amp; reload</button></div>
+    </div>
+    <div id="txlist"></div>
+    <div class="mfoot"><span>Latest ~50 transfers per address and network · Value uses today's price · From public block explorers</span><span id="txat"></span></div>
   </section>
 
   <section class="charts" aria-label="Breakdown">
@@ -314,7 +592,7 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   </section>
 
   <footer>
-    <span>Watch-only · 30+ networks · Balances from public blockchain nodes · Prices from CoinGecko · Auto-refresh every 2 min</span>
+    <span>Watch-only · 50+ networks · Balances from public blockchain nodes · Prices from CoinGecko · Auto-refresh every 2 min</span>
     <span id="pricestatus"></span>
   </footer>
 </div>
@@ -349,6 +627,7 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   const TOKENS = {
     USDT: { cg: "tether",   color: "#26a17b" },
     USDC: { cg: "usd-coin", color: "#2775ca" },
+    ID:   { cg: "space-id", color: "#2fb37a" },   // SPACE ID
   };
   // EVM token lists: { SYM: [[contract, decimals], ...] }  (several = native + bridged versions, summed)
   const evm = (name, sym, cg, color, rpc, explorer, tokens = {}, extra = {}) =>
@@ -366,7 +645,8 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
             re: /^T[1-9A-HJ-NP-Za-km-z]{33}$/, explorer: a => "https://tronscan.org/#/address/" + a,
             tokens: { USDT: [["TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", 6]], USDC: [["TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", 6]] } },
     bsc:  evm("BNB Chain", "BNB", "binancecoin", "#c99a0a", "https://bsc-rpc.publicnode.com", "https://bscscan.com/address/",
-            { USDT: [["0x55d398326f99059fF775485246999027B3197955", 18]], USDC: [["0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", 18]] }, { group: "Popular" }),
+            { USDT: [["0x55d398326f99059fF775485246999027B3197955", 18]], USDC: [["0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", 18]],
+              ID: [["0x2dfF88A56767223A5529eA5960Da7A3F5f766406", 18]] }, { group: "Popular" }),
 
     // --- EVM networks (same 0x address works on all of them) ---
     arb:   evm("Arbitrum", "ETH", "ethereum", "#2a7fbf", "https://arbitrum-one-rpc.publicnode.com", "https://arbiscan.io/address/",
@@ -415,6 +695,30 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     opbnb: evm("opBNB", "BNB", "binancecoin", "#b8930b", "https://opbnb-rpc.publicnode.com", "https://opbnbscan.com/address/"),
     xlayer:evm("X Layer", "OKB", "okb", "#3b3b3b", "https://rpc.xlayer.tech", "https://www.oklink.com/xlayer/address/",
              { USDC: [["0xB6CEceAB302E2E4948951eE7843FC24E92933061", 6]] }),
+    ronin: evm("Ronin", "RON", "ronin", "#1273ea", "https://api.roninchain.com/rpc", "https://app.roninchain.com/address/",
+             { USDC: [["0x0b7007c13325c48911f73a2dad5fa5dcbf808adc", 6]] }),
+    ftm:   evm("Fantom Opera", "FTM", "fantom", "#1969ff", "https://rpcapi.fantom.network", "https://explorer.fantom.network/address/",
+             { USDT: [["0x049d68029688eAbF473097a2fC38ef61633A3C7A", 6]], USDC: [["0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf", 6]] }),
+    glmr:  evm("Moonbeam", "GLMR", "moonbeam", "#e1147b", "https://moonbeam.api.onfinality.io/public", "https://moonbeam.moonscan.io/address/",
+             { USDT: [["0xFFFFFFfFea09FB06d082fd1275CD48b191cbCD1d", 6]], USDC: [["0xFFfffffF7D2B0B761Af01Ca8e25242976ac0aD7D", 6], ["0x931715FEE2d06333043d11F658C8CE934aC61D0c", 6]] }),
+    kava:  evm("Kava", "KAVA", "kava", "#e0402f", "https://kava-evm-rpc.publicnode.com", "https://kavascan.com/address/",
+             { USDT: [["0x919C1c267BC06a7039e03fcc2eF738525769109c", 6]] }),
+    core:  evm("Core", "CORE", "coredaoorg", "#e8811a", "https://rpc.coredao.org", "https://scan.coredao.org/address/",
+             { USDT: [["0x900101d06A7426441Ae63e9AB3B9b0F63Be145F1", 6]], USDC: [["0xa4151B2B3e269645181dCcF2D426cE75fcbDeca9", 6]] }),
+    metis: evm("Metis", "METIS", "metis-token", "#00a3b8", "https://metis-rpc.publicnode.com", "https://andromeda-explorer.metis.io/address/",
+             { USDT: [["0xbB06DCA3AE6887fAbF931640f67cab3e3a16F4dC", 6]], USDC: [["0xEA32A96608495e54156Ae48931A7c20f0dcc1a21", 6]] }),
+    zora:  evm("Zora", "ETH", "ethereum", "#3b3b3b", "https://rpc.zora.energy", "https://explorer.zora.energy/address/"),
+    mode:  evm("Mode", "ETH", "ethereum", "#9ea11a", "https://mainnet.mode.network", "https://explorer.mode.network/address/",
+             { USDT: [["0xf0F161fDA2712DB8b566946122a5af183995e2eD", 6]], USDC: [["0xd988097fb8612cc24eeC14542bC03424c656005f", 6]] }),
+    taiko: evm("Taiko", "ETH", "ethereum", "#e81899", "https://taiko-rpc.publicnode.com", "https://taikoscan.io/address/",
+             { USDT: [["0x2DEF195713CF4a606B49D07E520e22C17899a736", 6]], USDC: [["0x07d83526730c7438048D55A4fc0b850e2aaB6f0b", 6]] }),
+    abs:   evm("Abstract", "ETH", "ethereum", "#2a9d5c", "https://api.mainnet.abs.xyz", "https://abscan.org/address/",
+             { USDT: [["0x0709F39376dEEe2A2dfC94A58EdEb2Eb9DF012bD", 6]], USDC: [["0x84A71ccD554Cc1b02749b35d22F684CC8ec987e1", 6]] }),
+    manta: evm("Manta Pacific", "ETH", "ethereum", "#2d6ae0", "https://pacific-rpc.manta.network/http", "https://pacific-explorer.manta.network/address/",
+             { USDT: [["0xf417F5A458eC102B90352F697D6e2Ac3A3d2851f", 6]], USDC: [["0xb73603C5d87fA094B7314C74ACE2e64D165016fb", 6]] }),
+    // Fraxtal pays gas in FRAX (prev. FXS). symMatch: false stops legacy "FRAX" stablecoin tokens elsewhere being priced as it.
+    frax:  evm("Fraxtal", "FRAX", "frax-share", "#4a4a4a", "https://rpc.frax.com", "https://fraxscan.com/address/", {}, { symMatch: false }),
+    etc:   evm("Ethereum Classic", "ETC", "ethereum-classic", "#3ab83a", "https://etc.etcdesktop.com", "https://etc.blockscout.com/address/"),
 
     // --- Other networks ---
     ton:   { name: "TON", sym: "TON", cg: "the-open-network", color: "#1f8fd6", kind: "ton", group: "Other networks", tokens: { USDT: true },
@@ -431,12 +735,33 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
              re: /^([a-z0-9_-]+\.)*[a-z0-9_-]+\.(near|tg)$|^[a-f0-9]{64}$/, explorer: a => "https://nearblocks.io/address/" + a },
     xlm:   { name: "Stellar", sym: "XLM", cg: "stellar", color: "#3a3a3a", kind: "xlm", group: "Other networks", tokens: { USDC: true },
              re: /^G[A-Z2-7]{55}$/, explorer: a => "https://stellar.expert/explorer/public/account/" + a },
-    atom:  { name: "Cosmos Hub", sym: "ATOM", cg: "cosmos", color: "#5064a8", kind: "atom", group: "Other networks", tokens: {},
+    atom:  { name: "Cosmos Hub", sym: "ATOM", cg: "cosmos", color: "#5064a8", kind: "cosmos", group: "Other networks", tokens: {},
+             rest: ["https://cosmos-rest.publicnode.com"], denom: "uatom",
              re: /^cosmos1[02-9ac-hj-np-z]{38,58}$/, explorer: a => "https://www.mintscan.io/cosmos/address/" + a },
+    tia:   { name: "Celestia", sym: "TIA", cg: "celestia", color: "#7b2bf9", kind: "cosmos", group: "Other networks", tokens: {},
+             rest: ["https://celestia-rest.publicnode.com", "https://celestia-api.polkachu.com"], denom: "utia",
+             re: /^celestia1[02-9ac-hj-np-z]{38,58}$/, explorer: a => "https://www.mintscan.io/celestia/address/" + a },
+    saga:  { name: "Saga", sym: "SAGA", cg: "saga-2", color: "#3a3a3a", kind: "cosmos", group: "Other networks", tokens: {},
+             rest: ["https://saga-rest.publicnode.com", "https://saga-api.polkachu.com"], denom: "usaga",
+             re: /^saga1[02-9ac-hj-np-z]{38,58}$/, explorer: a => "https://www.mintscan.io/saga/address/" + a },
     ltc:   { name: "Litecoin", sym: "LTC", cg: "litecoin", color: "#5a7bb5", kind: "ltc", group: "Other networks", tokens: {},
              re: /^(ltc1[02-9ac-hj-np-z]{11,87}|[LM][1-9A-HJ-NP-Za-km-z]{26,33})$/, explorer: a => "https://litecoinspace.org/address/" + a },
     doge:  { name: "Dogecoin", sym: "DOGE", cg: "dogecoin", color: "#b89a3a", kind: "doge", group: "Other networks", tokens: {},
              re: /^D[1-9A-HJ-NP-Za-km-z]{25,34}$/, explorer: a => "https://blockchair.com/dogecoin/address/" + a },
+    bch:   { name: "Bitcoin Cash", sym: "BCH", cg: "bitcoin-cash", color: "#0ac18e", kind: "bch", group: "Other networks", tokens: {},
+             re: /^(bitcoincash:)?[qp][02-9ac-hj-np-z]{41}$/i, explorer: a => "https://blockchair.com/bitcoin-cash/address/" + bchAddr(a) },
+    dot:   { name: "Polkadot", sym: "DOT", cg: "polkadot", color: "#e6007a", kind: "dot", group: "Other networks", tokens: {},
+             rpcs: ["https://polkadot-asset-hub-rpc.polkadot.io", "https://asset-hub-polkadot-rpc.n.dwellir.com"], // balances live on Asset Hub since the 2025 migration
+             re: /^1[1-9A-HJ-NP-Za-km-z]{46,47}$/, explorer: a => "https://assethub-polkadot.subscan.io/account/" + a },
+    hbar:  { name: "Hedera", sym: "HBAR", cg: "hedera-hashgraph", color: "#3a3a3a", kind: "hbar", group: "Other networks", tokens: { USDC: true },
+             re: /^0\.0\.\d{1,12}$/, explorer: a => "https://hashscan.io/mainnet/account/" + a },
+    kas:   { name: "Kaspa", sym: "KAS", cg: "kaspa", color: "#49c5a3", kind: "kas", group: "Other networks", tokens: {},
+             re: /^kaspa:[a-z0-9]{61,63}$/, explorer: a => "https://explorer.kaspa.org/addresses/" + a },
+    tao:   { name: "Bittensor", sym: "TAO", cg: "bittensor", color: "#2b2b2b", kind: "tao", group: "Other networks", tokens: {},
+             rpcs: ["https://entrypoint-finney.opentensor.ai", "https://lite.chain.opentensor.ai"],
+             re: /^5[1-9A-HJ-NP-Za-km-z]{47}$/, explorer: a => "https://taostats.io/account/" + a },
+    stark: { name: "Starknet", sym: "STRK", cg: "starknet", color: "#ec796b", kind: "stark", group: "Other networks", tokens: { USDT: true, USDC: true },
+             re: /^0x[a-fA-F0-9]{50,64}$/, explorer: a => "https://voyager.online/contract/" + a },
   };
   // Pseudo-network: scan one 0x address on every EVM network at once
   const EVM_ALL = { name: "All EVM networks", sym: "EVM", color: "#4b5468", re: EVM_RE, explorer: a => "https://debank.com/profile/" + a };
@@ -459,6 +784,11 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   let theme = store.get("lw.theme", null);          // null = follow the device
   let view = store.get("lw.view", "assets");        // assets | wallets
   let range = store.get("lw.range", "7d");          // 24h | 7d
+  const openChains = new Set(store.get("lw.opench", [])); // expanded rows in the Chains view
+  const openAssets = new Set(store.get("lw.openas", [])); // expanded rows in the Assets view (shows holding addresses)
+  let mvRange = store.get("lw.mvr", "24h");         // Gainers & losers period: 24h | 7d | 30d
+  let mvMap = store.get("lw.mvm", true);            // Gainers & losers as heat map (true) or ranked list
+  let mvLast = null;                                // last arguments, so period/toggle/resize can redraw just this card
   // Last known data is cached so the page fills instantly on the next visit, then refreshes live
   let prices = store.get("lw.px", {});              // cg id -> {usd, inr, usd_24h_change}
   let markets = store.get("lw.mk", {});             // cg id -> {image, name, spark: [usd...], c7, at}
@@ -522,22 +852,234 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   const native = (key, amount) => { const c = CHAINS[key]; return { sym: c.sym, amount, cg: c.cg, color: c.color, native: true, chain: key }; };
   const token = (key, sym, amount) => ({ sym, amount, cg: TOKENS[sym].cg, color: TOKENS[sym].color, chain: key });
 
-  async function fetchEvm(key, addr) {
+  // ---------- Token discovery: every other coin a wallet holds ----------
+  // EVM: each network's CoinGecko token list, balances read in bulk through Multicall3.
+  // Solana / Tron / TON: the chain's own "all tokens of this account" APIs. Prices for these come from DexScreener.
+  const DISCOVER = { // network key -> [CoinGecko token-list platform, DexScreener chain id]
+    eth: ["ethereum", "ethereum"], bsc: ["binance-smart-chain", "bsc"], arb: ["arbitrum-one", "arbitrum"], base: ["base", "base"],
+    op: ["optimistic-ethereum", "optimism"], pol: ["polygon-pos", "polygon"], avax: ["avalanche", "avalanche"], hype: ["hyperevm", "hyperevm"],
+    monad: ["monad", "monad"], plasma: ["plasma", "plasma"], uni: ["unichain", "unichain"], sonic: ["sonic", "sonic"],
+    bera: ["berachain", "berachain"], linea: ["linea", "linea"], zksync: ["zksync", "zksync"], scroll: ["scroll", "scroll"],
+    ink: ["ink", "ink"], world: ["world-chain", "worldchain"], sei: ["sei-v2", "seiv2"], mantle: ["mantle", "mantle"],
+    blast: ["blast", "blast"], celo: ["celo", "celo"], gnosis: ["xdai", "gnosischain"], cronos: ["cronos", "cronos"],
+    opbnb: ["opbnb", "opbnb"], xlayer: ["x-layer", "xlayer"], sol: ["solana", "solana"], trx: ["tron", "tron"],
+    ronin: ["ronin", "ronin"], ftm: ["fantom", "fantom"], glmr: ["moonbeam", "moonbeam"], kava: ["kava", "kava"],
+    core: ["core", "core"], metis: ["metis-andromeda", "metis"], zora: ["zora-network", "zora"], mode: ["mode", "mode"],
+    abs: ["abstract", "abstract"], manta: ["manta-pacific", "manta"], frax: ["fraxtal", "fraxtal"], etc: ["ethereum-classic", "ethereumclassic"],
+    // taiko: CoinGecko serves no token list for it, so only ETH + stablecoins are read there
+  };
+  const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11"; // same address on every EVM network
+  // Chains whose native coin also has an ERC-20 face reading the same balance; skip it or the coin counts twice
+  const NATIVE_ERC20 = { metis: "0xdeaddeaddeaddeaddeaddeaddeaddeaddead0000", celo: "0x471ece3750da237f93b8e339c536989b8978a438" };
+  const tokenLists = {};
+  function tokenList(key) {
+    const p = DISCOVER[key] && DISCOVER[key][0];
+    if (!p) return Promise.resolve([]);
+    return tokenLists[key] || (tokenLists[key] = fetchJSON(`https://tokens.coingecko.com/${p}/all.json`, {}, 30000)
+      .then(j => (j && j.tokens) || []).catch(e => { delete tokenLists[key]; throw e; }));
+  }
+  const word = h => h.padStart(64, "0");
+  // aggregate3((address target, bool allowFailure, bytes callData)[]) with balanceOf(owner) for every token
+  function encodeBalanceCalls(tokens, owner) {
+    const data = ("70a08231" + word(owner.slice(2).toLowerCase())).padEnd(128, "0"); // 36 bytes, padded to 64
+    const n = tokens.length;
+    let offs = "", body = "";
+    for (let i = 0; i < n; i++) {
+      offs += word((n * 32 + i * 192).toString(16));
+      body += word(tokens[i].address.slice(2).toLowerCase()) + word("1") + word("60") + word("24") + data;
+    }
+    return "0x82ad56cb" + word("20") + word(n.toString(16)) + offs + body;
+  }
+  // (bool success, bytes returnData)[] -> first 32-byte word of each result, or null where the call failed
+  function decodeResults(hex) {
+    const h = hex.slice(2), at = byte => parseInt(h.slice(byte * 2, byte * 2 + 64), 16);
+    const base = at(0), n = at(base), start = base + 32, out = [];
+    for (let i = 0; i < n; i++) {
+      const t = start + at(start + i * 32), d = t + at(t + 32);
+      out.push(at(t) === 1 && at(d) >= 32 ? "0x" + h.slice((d + 32) * 2, (d + 64) * 2) : null);
+    }
+    return out;
+  }
+  async function scanEvmTokens(key, addr, skip) {
+    const c = CHAINS[key], found = [];
+    const list = (await tokenList(key)).filter(t => EVM_RE.test(t.address) && !skip.has(t.address.toLowerCase()));
+    const scan = async part => {
+      try {
+        const res = await rpc(c.rpc, "eth_call", [{ to: MULTICALL3, data: encodeBalanceCalls(part, addr) }, "latest"]);
+        decodeResults(res).forEach((h, i) => { if (h && BigInt(h) > 0n) found.push({ ...part[i], amount: units(h, part[i].decimals || 0) }); });
+      } catch (e) { // too big for this node: split and retry
+        if (part.length <= 50) throw e;
+        const mid = part.length >> 1;
+        await Promise.all([scan(part.slice(0, mid)), scan(part.slice(mid))]);
+      }
+    };
+    const parts = [];
+    for (let i = 0; i < list.length; i += 400) parts.push(list.slice(i, i + 400));
+    await Promise.all(parts.map(scan));
+    return found;
+  }
+  // DexScreener: best-liquidity USD price for up to 30 tokens per request
+  async function dexPrices(key, addrs, norm) {
+    const out = {}, parts = [];
+    for (let i = 0; i < addrs.length; i += 30) parts.push(addrs.slice(i, i + 30));
+    await Promise.all(parts.map(async part => {
+      const want = new Set(part.map(norm));
+      const j = await fetchJSON(`https://api.dexscreener.com/tokens/v1/${DISCOVER[key][1]}/${part.join(",")}`);
+      for (const p of j || []) {
+        const k = p.baseToken && norm(p.baseToken.address), usd = Number(p.priceUsd), liq = (p.liquidity && p.liquidity.usd) || 0;
+        if (!want.has(k) || !(usd > 0) || (out[k] && out[k].liq >= liq)) continue;
+        out[k] = { usd, liq, ch: p.priceChange ? p.priceChange.h24 ?? null : null, image: p.info && p.info.imageUrl, name: p.baseToken.name, symbol: p.baseToken.symbol, mcap: p.marketCap || p.fdv || null };
+      }
+    }));
+    return out;
+  }
+  let dexInfo = store.get("lw.dx", {}); // "dx:SYM:name" -> {usd, ch, image, name, at}
+  const hueOf = s => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 360;
+  // One holding line for a discovered token. Stablecoins and bridged native coins (e.g. ETH on BNB Chain) join the coin they track.
+  function dxLine(key, t, p) {
+    const sym = String(t.symbol || (p && p.symbol) || "?").toUpperCase().slice(0, 12);
+    const name = t.name || (p && p.name) || sym;
+    const like = (sym === "USDT" || sym === "USDC") ? TOKENS[sym] : Object.values(CHAINS).find(c => c.sym === sym && c.symMatch !== false);
+    const cg = like ? like.cg : "dx:" + sym + ":" + name.toLowerCase();
+    if (!like && p) dexInfo[cg] = { usd: p.usd, ch: p.ch, image: t.logoURI || p.image || null, name, mcap: p.mcap || null, at: Date.now() };
+    return { sym, amount: t.amount, cg, color: like ? like.color : `hsl(${hueOf(sym)} 45% 45%)`, chain: key, dx: true };
+  }
+  // Price the tokens found and drop dust and spam. t.listed === false means the token isn't on CoinGecko's list,
+  // so it is shown only when it has a real market (≥ $50k liquidity).
+  async function labelTokens(key, found, norm) {
+    if (!found.length) return [];
+    let px = null;
+    try { px = await dexPrices(key, found.map(t => t.address), norm); } catch {}
+    const out = [];
+    for (const t of found) {
+      const p = px && px[norm(t.address)];
+      const trusted = p && p.liq >= (t.listed === false ? 50000 : 1000);
+      if (px ? !(trusted && p.usd * t.amount >= 0.01) : t.listed === false) continue;
+      out.push(dxLine(key, t, trusted ? p : null));
+    }
+    return out;
+  }
+  const lower = a => String(a).toLowerCase(), same = a => a;
+  // Copies DexScreener prices into the price/market tables the rest of the page reads
+  function injectDex() {
+    const t = prices.tether || prices["usd-coin"], inr = t && t.usd ? t.inr / t.usd : null;
+    for (const [k, d] of Object.entries(dexInfo)) {
+      prices[k] = { usd: d.usd, inr: inr != null ? d.usd * inr : null, usd_24h_change: d.ch, inr_24h_change: d.ch };
+      markets[k] = { image: d.image, name: d.name, spark: [], c7: null, c30: null, mcap: d.mcap || null, at: d.at };
+    }
+  }
+
+  async function fetchEvm(key, addr, always = true) {
     const c = CHAINS[key];
     const pad = "000000000000000000000000" + addr.slice(2).toLowerCase();
-    const calls = [["eth_getBalance", [addr, "latest"]]], map = [];
+    const calls = [["eth_getBalance", [addr, "latest"]], ["eth_getTransactionCount", [addr, "latest"]]], map = [];
     for (const [sym, list] of Object.entries(c.tokens)) for (const [to, dec] of list) {
       calls.push(["eth_call", [{ to, data: "0x70a08231" + pad }, "latest"]]); map.push([sym, dec]);
     }
     const res = await rpcBatch(c.rpc, calls);
     const lines = [native(key, units(res[0], 18))];
     const sums = {};
-    map.forEach(([sym, dec], i) => { const h = res[i + 1]; if (h && h !== "0x") sums[sym] = (sums[sym] || 0) + units(h, dec); });
+    map.forEach(([sym, dec], i) => { const h = res[i + 2]; if (h && h !== "0x") sums[sym] = (sums[sym] || 0) + units(h, dec); });
     for (const [sym, v] of Object.entries(sums)) lines.push(token(key, sym, v));
+    // Other tokens. When scanning all networks, skip ones this address has never used (no coin, no transactions).
+    const used = BigInt(res[0] || 0) > 0n || BigInt(res[1] || 0) > 0n || Object.values(sums).some(v => v > 0);
+    if (always || used) {
+      try {
+        const skip = new Set([...Object.values(c.tokens).flat().map(([to]) => to.toLowerCase()), ...(NATIVE_ERC20[key] ? [NATIVE_ERC20[key]] : [])]);
+        lines.push(...await labelTokens(key, await scanEvmTokens(key, addr, skip), lower));
+      } catch (e) { lines.dxError = e.message; }
+    }
     return lines;
   }
 
+  // ---------- Substrate (Polkadot, Bittensor): read System.Account straight from chain storage ----------
+  // Storage key = twox128("System") + twox128("Account") + blake2b-128(pubkey) + pubkey, so we need BLAKE2b.
+  const B2_IV = [0x6a09e667f3bcc908n, 0xbb67ae8584caa73bn, 0x3c6ef372fe94f82bn, 0xa54ff53a5f1d36f1n, 0x510e527fade682d1n, 0x9b05688c2b3e6c1fn, 0x1f83d9abfb41bd6bn, 0x5be0cd19137e2179n];
+  const B2_SIGMA = ["0123456789abcdef", "ea489fd61c02b753", "b8c052fdae367194", "7931dcbe265a40f8", "905724afe1bc683d", "2c6a0b834d75fe19", "c51fed4a0763928b", "db7ec13950f4862a", "6fe9b308c2d714a5", "a2847615fb9e3cd0"].map(r => [...r].map(c => parseInt(c, 16)));
+  function blake2b(input, outLen) { // input: byte array; unkeyed BLAKE2b with outLen-byte digest
+    const M = (1n << 64n) - 1n, rotr = (x, n) => ((x >> n) | (x << (64n - n))) & M;
+    const h = B2_IV.slice(); h[0] ^= 0x01010000n ^ BigInt(outLen);
+    const blocks = Math.max(1, Math.ceil(input.length / 128));
+    for (let b = 0; b < blocks; b++) {
+      const m = [];
+      for (let i = 0; i < 16; i++) { let w = 0n; for (let j = 7; j >= 0; j--) w = (w << 8n) | BigInt(input[b * 128 + i * 8 + j] || 0); m.push(w); }
+      const last = b === blocks - 1, v = h.concat(B2_IV);
+      v[12] ^= BigInt(last ? input.length : (b + 1) * 128);
+      if (last) v[14] ^= M;
+      const G = (a, b2, c, d, x, y) => {
+        v[a] = (v[a] + v[b2] + x) & M; v[d] = rotr(v[d] ^ v[a], 32n); v[c] = (v[c] + v[d]) & M; v[b2] = rotr(v[b2] ^ v[c], 24n);
+        v[a] = (v[a] + v[b2] + y) & M; v[d] = rotr(v[d] ^ v[a], 16n); v[c] = (v[c] + v[d]) & M; v[b2] = rotr(v[b2] ^ v[c], 63n);
+      };
+      for (let r = 0; r < 12; r++) {
+        const s = B2_SIGMA[r % 10];
+        G(0, 4, 8, 12, m[s[0]], m[s[1]]); G(1, 5, 9, 13, m[s[2]], m[s[3]]); G(2, 6, 10, 14, m[s[4]], m[s[5]]); G(3, 7, 11, 15, m[s[6]], m[s[7]]);
+        G(0, 5, 10, 15, m[s[8]], m[s[9]]); G(1, 6, 11, 12, m[s[10]], m[s[11]]); G(2, 7, 8, 13, m[s[12]], m[s[13]]); G(3, 4, 9, 14, m[s[14]], m[s[15]]);
+      }
+      for (let i = 0; i < 8; i++) h[i] ^= v[i] ^ v[i + 8];
+    }
+    const out = [];
+    for (let i = 0; i < outLen; i++) out.push(Number((h[i >> 3] >> BigInt((i & 7) * 8)) & 0xffn));
+    return out;
+  }
+  const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  function base58(s) {
+    let n = 0n;
+    for (const ch of s) { const i = B58.indexOf(ch); if (i < 0) throw new Error("That address isn't valid"); n = n * 58n + BigInt(i); }
+    const bytes = [];
+    while (n > 0n) { bytes.unshift(Number(n & 0xffn)); n >>= 8n; }
+    for (const ch of s) { if (ch !== "1") break; bytes.unshift(0); }
+    return bytes;
+  }
+  const hexOf = b => b.map(x => x.toString(16).padStart(2, "0")).join("");
+  // bal: byte width of the chain's Balance type (Polkadot u128 = 16, Bittensor u64 = 8). Returns free + reserved.
+  async function substrateBalance(key, a, dec, bal) {
+    const raw = base58(a);
+    if (raw.length !== 35) throw new Error("That address isn't valid");
+    const pk = raw.slice(1, 33); // SS58: 1 prefix byte + 32-byte public key + 2 checksum bytes
+    const v = await rpcAny(key, CHAINS[key].rpcs, "state_getStorage", ["0x26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9" + hexOf(blake2b(pk, 16)) + hexOf(pk)]);
+    if (!v) return 0; // account never funded
+    const le = off => { let x = 0n; for (let i = bal - 1; i >= 0; i--) x = x * 256n + BigInt(parseInt(v.substr(2 + (off + i) * 2, 2), 16)); return x; };
+    return units((le(16) + le(16 + bal)).toString(), dec); // AccountInfo: 4 × u32 counters, then free, reserved
+  }
+  const bchAddr = a => /^bitcoincash:/i.test(a) ? a.toLowerCase() : "bitcoincash:" + a.toLowerCase();
+
   const FETCH = {
+    async bch(a) {
+      const path = "/bch/address/" + bchAddr(a) + "/balance";
+      const j = await fetchJSON("https://api.haskoin.com" + path).catch(() => fetchJSON("https://api.blockchain.info/haskoin-store" + path));
+      return [native("bch", ((j.confirmed || 0) + (j.unconfirmed || 0)) / 1e8)];
+    },
+    async dot(a) { return [native("dot", await substrateBalance("dot", a, 10, 16))]; },
+    async tao(a) { return [native("tao", await substrateBalance("tao", a, 9, 8))]; }, // free balance only; staked TAO is held by the subnet, not the account
+    async hbar(a) {
+      const base = "https://mainnet-public.mirrornode.hedera.com/api/v1/accounts/" + a;
+      const [acct, usdc] = await Promise.all([
+        fetchJSON(base + "?transactions=false", { notFoundOk: true }),
+        fetchJSON(base + "/tokens?token.id=0.0.456858", { notFoundOk: true }).catch(() => null),
+      ]);
+      if (!acct) return [native("hbar", 0)];
+      const u = usdc && (usdc.tokens || []).find(t => t.token_id === "0.0.456858");
+      return [native("hbar", ((acct.balance && acct.balance.balance) || 0) / 1e8), token("hbar", "USDC", u ? u.balance / 1e6 : 0)];
+    },
+    async kas(a) {
+      const j = await fetchJSON("https://api.kaspa.org/addresses/" + a + "/balance");
+      return [native("kas", (j.balance || 0) / 1e8)];
+    },
+    async stark(a) {
+      const url = "https://starknet-rpc.publicnode.com";
+      const bal = contract => rpc(url, "starknet_call", { request: { contract_address: contract, entry_point_selector: "0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e", calldata: [a] }, block_id: "latest" })
+        .then(r => BigInt(r[0]) + (BigInt(r[1]) << 128n)); // Uint256 as [low, high]
+      const [strk, eth, usdc, usdce, usdt] = await Promise.all([
+        bal("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+        bal("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+        bal("0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb"),
+        bal("0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"),
+        bal("0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8"),
+      ]);
+      return [native("stark", units(strk.toString(), 18)),
+              { sym: "ETH", amount: units(eth.toString(), 18), cg: "ethereum", color: CHAINS.eth.color, chain: "stark" },
+              token("stark", "USDC", units((usdc + usdce).toString(), 6)), token("stark", "USDT", units(usdt.toString(), 6))];
+    },
     async btc(a) {
       const j = await fetchJSON("https://blockstream.info/api/address/" + a);
       const s = j.chain_stats, m = j.mempool_stats;
@@ -559,6 +1101,27 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
         rpcAny("sol", c.rpcs, "getTokenAccountsByOwner", [a, { mint }, { encoding: "jsonParsed" }]).catch(() => ({ value: [] }))));
       const lines = [native("sol", bal.value / 1e9)];
       Object.keys(c.tokens).forEach((sym, i) => lines.push(token("sol", sym, (toks[i].value || []).reduce((s, x) => s + (x.account.data.parsed.info.tokenAmount.uiAmount || 0), 0))));
+      // Every other SPL token (classic and Token-2022). Jupiter's free balances API first: the public Solana
+      // servers refuse to list token accounts for requests coming from a web page.
+      try {
+        const known = new Set(Object.values(c.tokens));
+        const allTokens = async () => {
+          try {
+            const j = await fetchJSON("https://lite-api.jup.ag/ultra/v1/balances/" + a);
+            return Object.entries(j || {}).filter(([m]) => m !== "SOL").map(([mint, v]) => [mint, v.uiAmount || 0]);
+          } catch (e) {
+            const accts = await Promise.all(["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"].map(programId =>
+              rpcAny("sol", c.rpcs, "getTokenAccountsByOwner", [a, { programId }, { encoding: "jsonParsed" }])));
+            return accts.flatMap(r => ((r && r.value) || []).map(x => [x.account.data.parsed.info.mint, x.account.data.parsed.info.tokenAmount.uiAmount || 0]));
+          }
+        };
+        const [held, list] = await Promise.all([allTokens(), tokenList("sol").catch(() => [])]);
+        const byMint = {};
+        for (const [mint, amt] of held) if (amt > 0 && !known.has(mint)) byMint[mint] = (byMint[mint] || 0) + amt;
+        const listed = new Map(list.map(t => [t.address, t]));
+        const found = Object.entries(byMint).map(([mint, amount]) => ({ ...(listed.get(mint) || {}), address: mint, amount, listed: listed.has(mint) }));
+        lines.push(...await labelTokens("sol", found, same));
+      } catch (e) { lines.dxError = e.message; }
       return lines;
     },
     async trx(a) {
@@ -571,16 +1134,37 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
         for (const e of trc20) if (e[contract] != null) sum += units(e[contract], dec);
         lines.push(token("trx", sym, sum));
       }
+      // Every other TRC-20 token that CoinGecko lists (TronGrid doesn't give decimals, the list does)
+      try {
+        const bal = {};
+        for (const e of trc20) Object.assign(bal, e);
+        const skip = new Set(Object.values(CHAINS.trx.tokens).flat().map(x => x[0]));
+        const found = (await tokenList("trx"))
+          .filter(t => bal[t.address] != null && !skip.has(t.address))
+          .map(t => ({ ...t, amount: units(bal[t.address], t.decimals || 0) })).filter(t => t.amount > 0);
+        lines.push(...await labelTokens("trx", found, same));
+      } catch (e) { lines.dxError = e.message; }
       return lines;
     },
     async ton(a) {
       const [acct, jet] = await Promise.all([
         fetchJSON("https://tonapi.io/v2/accounts/" + encodeURIComponent(a)),
-        fetchJSON("https://tonapi.io/v2/accounts/" + encodeURIComponent(a) + "/jettons").catch(() => ({ balances: [] })),
+        fetchJSON("https://tonapi.io/v2/accounts/" + encodeURIComponent(a) + "/jettons?currencies=usd").catch(e => ({ balances: [], error: e.message })),
       ]);
       const lines = [native("ton", (acct.balance || 0) / 1e9)];
       const usdt = (jet.balances || []).find(b => b.jetton && /^USD[₮T]$/.test(b.jetton.symbol || "") && b.jetton.verification === "whitelist");
       lines.push(token("ton", "USDT", usdt ? units(usdt.balance, usdt.jetton.decimals ?? 6) : 0));
+      // Every other verified jetton; tonapi prices them itself
+      for (const b of jet.balances || []) {
+        const j = b.jetton;
+        if (!j || b === usdt || j.verification !== "whitelist") continue;
+        const amount = units(b.balance, j.decimals ?? 9), pr = b.price || {};
+        const usd = pr.prices && pr.prices.USD, d = pr.diff_24h && pr.diff_24h.USD;
+        if (!(usd > 0 && usd * amount >= 0.01)) continue;
+        lines.push(dxLine("ton", { symbol: j.symbol, name: j.name, logoURI: j.image, amount },
+          { usd, ch: d ? parseFloat(String(d).replace("−", "-")) : null }));
+      }
+      if (jet.error) lines.dxError = jet.error;
       return lines;
     },
     async xrp(a) {
@@ -645,24 +1229,36 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
       const usdc = j.balances.find(b => b.asset_code === "USDC" && b.asset_issuer === "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN");
       return [native("xlm", nat ? Number(nat.balance) : 0), token("xlm", "USDC", usdc ? Number(usdc.balance) : 0)];
     },
-    async atom(a) {
-      const j = await fetchJSON("https://cosmos-rest.publicnode.com/cosmos/bank/v1beta1/balances/" + a);
-      const u = (j.balances || []).find(b => b.denom === "uatom");
-      return [native("atom", u ? Number(u.amount) / 1e6 : 0)];
+    // Cosmos SDK chains (Cosmos Hub, Celestia, Saga): spendable balance of the chain's own coin, trying each REST server in turn
+    async cosmos(a, key) {
+      const c = CHAINS[key];
+      let j, lastErr;
+      for (const base of c.rest) {
+        try { j = await fetchJSON(base + "/cosmos/bank/v1beta1/balances/" + a); break; } catch (e) { lastErr = e; }
+      }
+      if (!j) throw lastErr;
+      const u = (j.balances || []).find(b => b.denom === c.denom);
+      return [native(key, u ? units(u.amount, 6) : 0)];
     },
   };
 
   // Returns { lines, warn } for any wallet
   async function fetchWallet(w) {
     if (w.chain === "evmall") {
-      const results = await Promise.allSettled(EVM_KEYS.map(k => fetchEvm(k, w.addr)));
-      const lines = [], failed = [];
-      results.forEach((r, i) => r.status === "fulfilled" ? lines.push(...r.value) : failed.push(CHAINS[EVM_KEYS[i]].name));
+      const results = await Promise.allSettled(EVM_KEYS.map(k => fetchEvm(k, w.addr, false)));
+      const lines = [], failed = [], partial = [];
+      results.forEach((r, i) => {
+        if (r.status !== "fulfilled") return failed.push(CHAINS[EVM_KEYS[i]].name);
+        lines.push(...r.value);
+        if (r.value.dxError) partial.push(CHAINS[EVM_KEYS[i]].name);
+      });
       if (failed.length === EVM_KEYS.length) throw new Error("Couldn't reach any EVM network");
-      return { lines, warn: failed.length ? `Couldn't check: ${failed.join(", ")}` : null };
+      const warn = [failed.length && `Couldn't check: ${failed.join(", ")}`, partial.length && `Couldn't list all tokens on: ${partial.join(", ")}`].filter(Boolean).join(" · ");
+      return { lines, warn: warn || null };
     }
     const c = CHAINS[w.chain];
-    return { lines: c.kind === "evm" ? await fetchEvm(w.chain, w.addr) : await FETCH[c.kind](w.addr), warn: null };
+    const lines = c.kind === "evm" ? await fetchEvm(w.chain, w.addr) : await FETCH[c.kind](w.addr, w.chain);
+    return { lines, warn: lines.dxError ? "Couldn't list all tokens: " + lines.dxError : null };
   }
 
   // What a wallet holds, ready to price and show. Zero lines are hidden, except a single-network wallet's own coin.
@@ -678,17 +1274,20 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   async function getPrices() {
     const j = await fetchJSON(`https://api.coingecko.com/api/v3/simple/price?ids=${allIds()}&vs_currencies=usd,inr&include_24hr_change=true`);
     prices = j;
+    injectDex();
   }
   // Logos, names and 7-day hourly price history (used for sparklines and the portfolio chart)
   async function getMarkets() {
-    const j = await fetchJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${allIds()}&sparkline=true&price_change_percentage=7d&per_page=250`);
+    const j = await fetchJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${allIds()}&sparkline=true&price_change_percentage=24h,7d,30d&per_page=250`);
     const m = {};
     for (const c of j || []) m[c.id] = {
       image: c.image, name: c.name,
       spark: ((c.sparkline_in_7d && c.sparkline_in_7d.price) || []).map(v => +v.toPrecision(6)),
-      c7: c.price_change_percentage_7d_in_currency, at: Date.parse(c.last_updated) || Date.now(),
+      c7: c.price_change_percentage_7d_in_currency, c30: c.price_change_percentage_30d_in_currency, at: Date.parse(c.last_updated) || Date.now(),
+      mcap: c.market_cap || c.fully_diluted_valuation || null,
     };
     markets = m;
+    injectDex();
   }
 
   // ---------- Formatting ----------
@@ -747,11 +1346,36 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     const m = {};
     for (const w of wallets) for (const h of holdings(w)) {
       if (!(h.amount > 0)) continue;
-      const a = m[h.cg] || (m[h.cg] = { cg: h.cg, sym: h.sym, color: h.color, amount: 0, value: 0, nets: new Set(), priced: false });
+      const a = m[h.cg] || (m[h.cg] = { cg: h.cg, sym: h.sym, color: h.color, amount: 0, value: 0, nets: new Set(), priced: false, src: {} });
       a.amount += h.amount; a.nets.add(h.chain);
-      const p = px(h.cg); if (p != null) { a.value += h.amount * p; a.priced = true; }
+      const p = px(h.cg), v = p != null ? h.amount * p : 0;
+      if (p != null) { a.value += v; a.priced = true; }
+      // Which address holds it, per wallet + network (a token can sit on several chains in one EVM wallet)
+      const sk = w.id + "|" + h.chain;
+      const s = a.src[sk] || (a.src[sk] = { w, chain: h.chain, amount: 0, value: 0 });
+      s.amount += h.amount; s.value += v;
     }
-    return Object.values(m).sort((a, b) => b.value - a.value || b.amount - a.amount);
+    return Object.values(m)
+      .map(a => ({ ...a, src: Object.values(a.src).sort((x, y) => y.value - x.value || y.amount - x.amount) }))
+      .sort((a, b) => b.value - a.value || b.amount - a.amount);
+  }
+
+  // Holdings grouped by network, each with the coins held on it (summed across wallets)
+  function chainList() {
+    const m = {};
+    for (const w of wallets) for (const h of holdings(w)) {
+      if (!(h.amount > 0)) continue;
+      const c = m[h.chain] || (m[h.chain] = { key: h.chain, value: 0, priced: false, toks: {}, wallets: new Set() });
+      c.wallets.add(w.id);
+      const t = c.toks[h.cg] || (c.toks[h.cg] = { cg: h.cg, sym: h.sym, color: h.color, amount: 0, value: 0, priced: false });
+      t.amount += h.amount;
+      const p = px(h.cg);
+      if (p != null) { const v = h.amount * p; t.value += v; c.value += v; t.priced = c.priced = true; }
+    }
+    const byVal = (a, b) => b.value - a.value || b.amount - a.amount;
+    return Object.values(m)
+      .map(c => ({ ...c, toks: Object.values(c.toks).sort(byVal) }))
+      .sort((a, b) => b.value - a.value || b.toks.length - a.toks.length);
   }
 
   // Portfolio value over the last 7 days: today's holdings priced at each past hour
@@ -825,15 +1449,22 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     const nets = new Set(assets.flatMap(a => [...a.nets]));
     $("count").textContent = `${wallets.length} wallet${wallets.length === 1 ? "" : "s"} · ${assets.length} asset${assets.length === 1 ? "" : "s"} · ${nets.size} network${nets.size === 1 ? "" : "s"}`;
 
+    renderCapMix(assets, total, loadingAll);
+
     // Highlights
     renderStats(assets, total, nets, loadingAll);
+    renderMovers(assets, loadingAll);
 
     // Holdings
-    $("pane-assets").hidden = view !== "assets"; $("pane-wallets").hidden = view !== "wallets";
-    $("holdtitle").textContent = view === "assets" ? "Assets" : "Wallets";
-    $("holdhint").textContent = view === "assets" ? (assets.length ? `${assets.length} held across ${nets.size} network${nets.size === 1 ? "" : "s"}` : "") : `${wallets.length} tracked`;
+    $("pane-assets").hidden = view !== "assets"; $("pane-wallets").hidden = view !== "wallets"; $("pane-chains").hidden = view !== "chains";
+    $("holdtitle").textContent = { assets: "Assets", chains: "Chains", wallets: "Wallets" }[view] || "Assets";
+    $("holdhint").textContent = view === "assets" ? (assets.length ? `${assets.length} held across ${nets.size} network${nets.size === 1 ? "" : "s"}` : "")
+      : view === "chains" ? (nets.size ? `${nets.size} chain${nets.size === 1 ? "" : "s"} · click a chain to see its coins` : "")
+      : `${wallets.length} tracked`;
     renderAssets(assets, total, loadingAll);
+    renderChains(total, loadingAll);
     renderWallets();
+    renderTx();
 
     updateCharts(assets, total, shown);
   }
@@ -866,6 +1497,153 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     ].join("");
   }
 
+  // ---------- Market-cap mix ----------
+  const CAP_TIERS = [
+    { k: "large", name: "Large-cap", color: "#4cc9b0", note: "Market cap is greater than $10B" },
+    { k: "mid", name: "Mid-cap", color: "#e8b93f", note: "Market cap between $1B and $10B" },
+    { k: "small", name: "Small-cap", color: "#9b6bd3", note: "Market cap between $100M and $1B" },
+    { k: "micro", name: "Micro-cap", color: "#f08a4b", note: "Market cap is less than $100M" },
+    { k: "stable", name: "Stablecoins", color: "#6b84f0", note: "Pegged to a fiat currency" },
+    { k: "unknown", name: "Unranked", color: "#8b92a6", note: "No market cap data available" },
+  ];
+  const STABLE_SYM = /^(USDT|USDC|DAI|FDUSD|TUSD|USDE|USDS|PYUSD|BUSD|USDD|FRAX|LUSD|GUSD|USDP)$/i;
+  function capTier(a) {
+    if (isStable(a.cg) || STABLE_SYM.test(a.sym)) return "stable";
+    const m = markets[a.cg] && markets[a.cg].mcap;
+    if (!(m > 0)) return "unknown";
+    return m >= 1e10 ? "large" : m >= 1e9 ? "mid" : m >= 1e8 ? "small" : "micro";
+  }
+  const sharePct = s => s > 0 && s < 0.01 ? "<0.01%" : s.toFixed(2) + "%";
+  let capData = [], capTotal = 0;
+  function renderCapMix(assets, total, loading) {
+    const box = $("capmix");
+    if (loading || !(total > 0)) { box.hidden = true; capData = []; return; }
+    const g = {};
+    for (const a of assets) if (a.priced && a.value > 0) {
+      const k = capTier(a);
+      (g[k] = g[k] || { v: 0, toks: [] }).v += a.value;
+      g[k].toks.push(a); // assets arrive sorted by value, so toks stay sorted too
+    }
+    capTotal = total;
+    capData = CAP_TIERS.filter(t => g[t.k]).map(t => ({ ...t, ...g[t.k], share: g[t.k].v / total * 100 })).sort((a, b) => b.v - a.v);
+    box.hidden = !capData.length;
+    box.classList.remove("act");
+    box.innerHTML = `<div class="cmhead"><span class="eyebrow">Market-cap mix</span><span class="hint">Hover a tier to see its top tokens</span></div>
+      <div class="cmbar" role="img" aria-label="${esc(capData.map(t => `${t.name} ${sharePct(t.share)}`).join(", "))}">${capData.map(t => `<span data-tier="${t.k}" style="flex-grow:${t.share.toFixed(4)};background:${t.color}"></span>`).join("")}</div>
+      <div class="cmleg">${capData.map(t => `<button type="button" data-tier="${t.k}"><i class="dot" style="background:${t.color}"></i><span><b>${t.name}</b><span class="num">${sharePct(t.share)}</span></span></button>`).join("")}</div>
+      <div class="cmtip" id="cmtip" hidden></div>`;
+  }
+  function capTip(el) {
+    const box = $("capmix"), tip = $("cmtip"), k = el && el.dataset.tier, t = capData.find(x => x.k === k);
+    box.querySelectorAll("[data-tier]").forEach(n => n.classList.toggle("on", n.dataset.tier === k && !!t));
+    box.classList.toggle("act", !!t);
+    if (!t) { tip.hidden = true; return; }
+    const top = t.toks.slice(0, 3);
+    tip.innerHTML = `<div class="th"><span>Top ${top.length} token${top.length === 1 ? "" : "s"}</span><span>${esc(t.name)}</span></div>
+      ${top.map(a => `<div class="tr">${logo(a.cg, a.sym, a.color, "sm")}<b>${esc(a.sym)}</b><span class="num">${sharePct(a.value / capTotal * 100)}</span></div>`).join("")}
+      ${t.toks.length > 3 ? `<div class="sub">+${t.toks.length - 3} more · ${fmtMoney(t.v)} total</div>` : `<div class="sub">${fmtMoney(t.v)} total</div>`}
+      <div class="tn">${esc(t.note)}</div>`;
+    tip.hidden = false;
+    const b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+    const x = Math.max(0, Math.min(b.width - tip.offsetWidth, r.left - b.left + r.width / 2 - tip.offsetWidth / 2));
+    tip.style.left = x + "px";
+    tip.style.top = (r.top - b.top - tip.offsetHeight - 8) + "px";
+  }
+  {
+    const box = $("capmix"), at = e => e.target.closest && e.target.closest("[data-tier]");
+    box.addEventListener("mouseover", e => { const el = at(e); if (el) capTip(el); });
+    box.addEventListener("mouseleave", () => capTip(null));
+    box.addEventListener("focusin", e => capTip(at(e)));
+    box.addEventListener("focusout", () => capTip(null));
+    box.addEventListener("click", e => { const el = at(e); if (el) capTip(el.classList.contains("on") && e.pointerType !== "mouse" ? null : el); });
+  }
+
+  // ---------- Gainers & losers ----------
+  // A coin's price change over the period, in %. 24h follows the chosen currency; 7d/30d come from CoinGecko in USD.
+  function periodPct(cg, r) {
+    if (r === "24h") return chg(cg);
+    const mk = markets[cg]; if (!mk) return null;
+    if (r === "7d") return mk.c7 != null ? mk.c7 : (mk.spark && mk.spark.length > 1 ? (mk.spark[mk.spark.length - 1] / mk.spark[0] - 1) * 100 : null);
+    return mk.c30 ?? null;
+  }
+  const sgn$ = v => (v >= 0 ? "+" : "−") + fmtMoney(Math.abs(v));
+  const sgnShort = v => (v >= 0 ? "+" : "−") + new Intl.NumberFormat(currency === "inr" ? "en-IN" : "en-US", { style: "currency", currency: currency.toUpperCase(), notation: "compact", maximumFractionDigits: Math.abs(v) < 10 ? 2 : 1 }).format(Math.abs(v));
+
+  // Squarified treemap: lays out items (sorted big → small, each with .size) inside a w×h box
+  function squarify(items, x, y, w, h) {
+    const out = [], total = items.reduce((s, i) => s + i.size, 0);
+    if (!total || w <= 0 || h <= 0) return out;
+    let rest = items.map(i => ({ ...i, area: i.size * w * h / total }));
+    const worst = (row, side) => {
+      let s = 0, mx = 0, mn = Infinity;
+      for (const r of row) { s += r.area; mx = Math.max(mx, r.area); mn = Math.min(mn, r.area); }
+      return Math.max(side * side * mx / (s * s), s * s / (side * side * mn));
+    };
+    while (rest.length) {
+      const side = Math.min(w, h);
+      let n = 1;
+      while (n < rest.length && worst(rest.slice(0, n + 1), side) <= worst(rest.slice(0, n), side)) n++;
+      const row = rest.slice(0, n), s = row.reduce((a, r) => a + r.area, 0);
+      rest = rest.slice(n);
+      if (w >= h) { const cw = s / h; let cy = y; for (const r of row) { const rh = r.area / cw; out.push({ ...r, x, y: cy, w: cw, h: rh }); cy += rh; } x += cw; w -= cw; }
+      else        { const rh = s / w; let cx = x; for (const r of row) { const rw = r.area / rh; out.push({ ...r, x: cx, y, w: rw, h: rh }); cx += rw; } y += rh; h -= rh; }
+    }
+    return out;
+  }
+
+  function renderMovers(assets, loading) {
+    mvLast = [assets, loading];
+    document.querySelectorAll("[data-mv]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mv === mvRange)));
+    $("mvmap").checked = mvMap;
+    const box = $("movers"), R = mvRange.toUpperCase(), foot = $("mvfoot"), net$ = $("mvnet");
+    if (!wallets.length || loading) {
+      box.innerHTML = loading ? '<div class="tmap"><span class="skeleton" style="width:100%;height:100%;border-radius:10px"></span></div>' : '<div class="pempty">Add a wallet to see which coins gained or lost value.</div>';
+      net$.textContent = ""; foot.textContent = ""; return;
+    }
+    // Gain/loss of what you hold today: value now minus the same amount at the period's starting price
+    const rows = [], missing = [];
+    for (const a of assets) {
+      if (!a.priced || !(a.value > 0) || isStable(a.cg)) continue;
+      const p = periodPct(a.cg, mvRange);
+      if (p == null || !isFinite(p) || p <= -100) { missing.push(a.sym); continue; }
+      rows.push({ a, p, d: a.value * p / (100 + p) });
+    }
+    const net = rows.reduce((s, r) => s + r.d, 0);
+    net$.innerHTML = rows.length ? `Net <span class="num ${ud(net)}">${sgn$(net)}</span> · ${R}` : "";
+    foot.innerHTML = rows.length
+      ? `<span>${mvMap ? "Tile size = value gained or lost · colour = % price move" : "Sorted from biggest gain to biggest loss"} · current holdings, stablecoins excluded</span>`
+        + (missing.length ? `<span>${missing.length} coin${missing.length === 1 ? "" : "s"} without ${R} data (${esc(missing.slice(0, 4).join(", "))}${missing.length > 4 ? "…" : ""})</span>` : (mvMap ? `<span class="mleg">Loss <i></i> Gain</span>` : ""))
+      : "";
+    if (!rows.length) { box.innerHTML = `<div class="pempty">No ${R} price change available for your coins yet. It fills in after the next refresh.</div>`; return; }
+
+    if (!mvMap) {
+      const max = Math.max(...rows.map(r => Math.abs(r.d))) || 1;
+      box.innerHTML = '<div class="mvlist">' + [...rows].sort((x, y) => y.d - x.d).map(r => `<div class="mvrow">
+        <div class="a-who">${logo(r.a.cg, r.a.sym, r.a.color, "sm")}<div class="t"><b>${esc(assetName(r.a))}</b><span class="sub">${esc(r.a.sym)} · ${fmtMoney(r.a.value)}</span></div></div>
+        <div class="mvbar"><span style="width:${(Math.abs(r.d) / max * 100).toFixed(1)}%;background:var(--${ud(r.d)})"></span></div>
+        <div class="r"><div class="num ${ud(r.d)}">${sgn$(r.d)}</div><div class="num sub ${ud(r.p)}">${pct(r.p)}</div></div>
+      </div>`).join("") + "</div>";
+      return;
+    }
+
+    box.innerHTML = '<div class="tmap" id="tmap"></div>';
+    const el = $("tmap"), W = el.clientWidth, H = el.clientHeight;
+    if (!W || !H) return;
+    const items = rows.filter(r => Math.abs(r.d) > 0).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).map(r => ({ ...r, size: Math.abs(r.d) }));
+    if (!items.length) { box.innerHTML = `<div class="pempty">No change in value over ${R}.</div>`; return; }
+    const cap = { "24h": 8, "7d": 15, "30d": 30 }[mvRange]; // % move that gets the strongest colour
+    el.innerHTML = squarify(items, 0, 0, W, H).map(t => {
+      const k = Math.min(1, Math.abs(t.p) / cap), mix = Math.round(16 + 46 * k);
+      const bg = `color-mix(in srgb, var(--${t.d >= 0 ? "up" : "down"}) ${mix}%, var(--surface-2))`;
+      const fs = Math.max(10, Math.min(24, Math.min(t.w / 3.6, t.h / 3)));
+      const lvl = t.w < 30 || t.h < 18 ? 0 : t.w < 56 || t.h < 38 ? 1 : t.h < 60 ? 2 : 3; // how much text fits
+      const label = `${assetName(t.a)} (${t.a.sym}) · ${sgn$(t.d)} · ${pct(t.p)} · ${R}`;
+      const pctPos = v => `${(v * 100).toFixed(3)}%`;
+      return `<div class="tile" style="left:${pctPos(t.x / W)};top:${pctPos(t.y / H)};width:${pctPos(t.w / W)};height:${pctPos(t.h / H)};background:${bg};--fs:${fs.toFixed(1)}px" title="${esc(label)}" role="img" aria-label="${esc(label)}">`
+        + (lvl ? `<b>${esc(t.a.sym)}</b>` : "") + (lvl > 1 ? `<span class="num">${sgnShort(t.d)}</span>` : "") + (lvl > 2 ? `<span class="num pc">${pct(t.p)}</span>` : "") + "</div>";
+    }).join("");
+  }
+
   function emptyState() {
     return `<div class="empty"><b>No wallets yet</b><span>Paste any public address to start tracking. Balances load straight from the blockchain.</span><button type="button" class="btn primary" data-open-add>${icons.plus}Add your first wallet</button></div>`;
   }
@@ -877,18 +1655,77 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
       return;
     }
     if (!assets.length) { $("assets").innerHTML = `<div class="empty"><b>Nothing here yet</b><span>Your wallets don't hold any supported coins right now.</span></div>`; return; }
+    const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
     $("assets").innerHTML = assets.map(a => {
       const p = px(a.cg), ch = chg(a.cg), mk = markets[a.cg];
       const c7 = mk && mk.c7 != null ? mk.c7 : (mk && mk.spark.length ? (mk.spark[mk.spark.length - 1] / mk.spark[0] - 1) * 100 : null);
       const share = total > 0 ? a.value / total * 100 : 0;
       const where = a.nets.size > 1 ? `${a.nets.size} networks` : CHAINS[[...a.nets][0]].name;
-      return `<div class="arow">
-        <div class="a-who">${logo(a.cg, a.sym, a.color)}<div class="t"><b>${esc(assetName(a))}</b><span class="sub">${esc(a.sym)} · ${esc(where)}</span></div></div>
+      const open = openAssets.has(a.cg), id = "ah-" + a.cg.replace(/[^a-z0-9_-]/gi, "_");
+      const nAddr = new Set(a.src.map(s => s.w.id)).size;
+      const holders = open ? `<div class="chtoks" id="${id}">
+          <div class="hrow th"><div>Held by</div><div class="h-net">Network</div><div class="r h-amt">Amount</div><div class="r h-share">Share</div><div class="r">Value</div><div></div></div>
+          ${a.src.map(s => {
+            const w = s.w, net = CHAINS[s.chain], multi = w.chain === "evmall";
+            const inCoin = a.amount > 0 ? s.amount / a.amount * 100 : 0;
+            const url = (net && net.explorer ? net : meta(w)).explorer(w.addr);
+            return `<div class="hrow">
+              <div class="a-who">${chainLogo(s.chain, "sm")}<div class="t"><b>${esc(w.label || (multi ? "EVM wallet" : net.name + " wallet"))}</b><span class="sub mono" title="${esc(w.addr)}">${esc(short(w.addr))}</span></div></div>
+              <div class="h-net sub">${esc(net ? net.name : "")}</div>
+              <div class="r h-amt num">${fmtAmt(s.amount)} <span class="sub">${esc(a.sym)}</span></div>
+              <div class="h-share share"><div class="mini"><span style="width:${inCoin.toFixed(2)}%;background:${a.color}"></span></div><span class="num sub">${sharePct(inCoin)}</span></div>
+              <div class="r"><div class="num val">${a.priced ? fmtMoney(s.value) : "—"}</div><div class="num sub only-m">${fmtAmt(s.amount)} ${esc(a.sym)}</div></div>
+              <div class="acts">
+                <button type="button" class="icon" data-act="copy" data-addr="${esc(w.addr)}" title="Copy address" aria-label="Copy address">${icons.copy}</button>
+                <a class="icon" href="${esc(url)}" target="_blank" rel="noopener" title="Open in block explorer" aria-label="Open in block explorer">${icons.ext}</a>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>` : "";
+      return `<div class="agrp"><button type="button" class="arow" data-asset="${esc(a.cg)}" aria-expanded="${open}" aria-controls="${id}">
+        <div class="a-who">${chev}${logo(a.cg, a.sym, a.color)}<div class="t"><b>${esc(assetName(a))}</b><span class="sub">${esc(a.sym)} · ${esc(where)} · ${nAddr} address${nAddr === 1 ? "" : "es"}</span></div></div>
         <div class="r c-price"><div class="num">${fmtMoney(p)}</div><div class="num sub ${ud(ch)}">${pct(ch)}</div></div>
         <div class="c-spark" title="7d ${pct(c7)}">${sparkSVG(mk && mk.spark, (c7 ?? 0) >= 0)}</div>
         <div class="r c-hold"><div class="num">${fmtAmt(a.amount)}</div><div class="sub">${esc(a.sym)}</div></div>
         <div class="r"><div class="num val">${a.priced ? fmtMoney(a.value) : "—"}</div><div class="num sub ${ud(ch)} only-m">${pct(ch)}</div></div>
         <div class="c-alloc alloc"><div class="mini"><span style="width:${share.toFixed(2)}%;background:${a.color}"></span></div><span class="num sub">${share.toFixed(1)}%</span></div>
+      </button>${holders}</div>`;
+    }).join("");
+  }
+
+  function renderChains(total, loading) {
+    const box = $("chains");
+    if (!wallets.length) { box.innerHTML = emptyState(); return; }
+    if (loading) {
+      box.innerHTML = Array.from({ length: 3 }, () => `<div class="chrow"><div class="a-who"><span class="skeleton circ"></span><span class="skeleton" style="width:110px"></span></div><div class="c-share"><span class="skeleton" style="width:100%"></span></div><div class="r"><span class="skeleton" style="width:24px"></span></div><div class="r"><span class="skeleton"></span></div></div>`).join("");
+      return;
+    }
+    const list = chainList();
+    if (!list.length) { box.innerHTML = `<div class="empty"><b>Nothing here yet</b><span>Your wallets don't hold any supported coins right now.</span></div>`; return; }
+    const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    box.innerHTML = list.map(c => {
+      const net = CHAINS[c.key], open = openChains.has(c.key);
+      const share = total > 0 ? c.value / total * 100 : 0;
+      const shareTxt = share > 0 && share < 0.01 ? "<0.01%" : share.toFixed(2) + "%";
+      const toks = open ? `<div class="chtoks" id="cht-${c.key}">
+          <div class="trow th"><div>Coin</div><div class="r t-price">Price / 24h</div><div class="r t-hold">Holdings</div><div class="r">Value</div></div>
+          ${c.toks.map(t => {
+            const p = px(t.cg), ch = chg(t.cg), inChain = c.value > 0 ? t.value / c.value * 100 : 0;
+            return `<div class="trow">
+              <div class="a-who">${logo(t.cg, t.sym, t.color, "sm")}<div class="t"><b>${esc(assetName(t))}</b><span class="sub">${esc(t.sym)}${t.priced ? ` · ${inChain.toFixed(1)}% of chain` : ""}</span></div></div>
+              <div class="r t-price"><div class="num">${fmtMoney(p)}</div><div class="num sub ${ud(ch)}">${pct(ch)}</div></div>
+              <div class="r t-hold"><div class="num">${fmtAmt(t.amount)}</div><div class="sub">${esc(t.sym)}</div></div>
+              <div class="r"><div class="num val">${t.priced ? fmtMoney(t.value) : "—"}</div><div class="num sub only-m">${fmtAmt(t.amount)} ${esc(t.sym)}</div></div>
+            </div>`;
+          }).join("")}
+        </div>` : "";
+      return `<div class="chgrp">
+        <button type="button" class="chrow" data-chain="${c.key}" aria-expanded="${open}" aria-controls="cht-${c.key}">
+          <div class="a-who">${chev}${chainLogo(c.key)}<div class="t"><b>${esc(net.name)}</b><span class="sub">${c.wallets.size} wallet${c.wallets.size === 1 ? "" : "s"}</span></div></div>
+          <div class="c-share share"><div class="mini"><span style="width:${Math.min(100, share).toFixed(2)}%;background:${net.color}"></span></div><span class="num">${shareTxt}</span></div>
+          <div class="r num">${c.toks.length}</div>
+          <div class="r"><div class="num val">${c.priced ? fmtMoney(c.value) : "—"}</div><div class="num sub only-m">${shareTxt}</div></div>
+        </button>${toks}
       </div>`;
     }).join("");
   }
@@ -946,6 +1783,543 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     }).join("");
   }
 
+  // ---------- Transactions ----------
+  // Recent transfers per address, one block per tracked wallet. Each row is one token movement in or out.
+  const TX_LIMIT = 50, TX_PAGE = 25;
+  // Keyless Etherscan-compatible explorers (Blockscout)
+  const BLOCKSCOUT = {
+    eth: "https://eth.blockscout.com", base: "https://base.blockscout.com", arb: "https://arbitrum.blockscout.com",
+    op: "https://optimism.blockscout.com", gnosis: "https://gnosis.blockscout.com", pol: "https://polygon.blockscout.com",
+    zksync: "https://zksync.blockscout.com", scroll: "https://scroll.blockscout.com", celo: "https://celo.blockscout.com",
+    ink: "https://explorer.inkonchain.com", mode: "https://explorer.mode.network", uni: "https://unichain.blockscout.com",
+    world: "https://worldchain-mainnet.explorer.alchemy.com", etc: "https://etc.blockscout.com",
+  }; // checked Nov 2026: Zora 404, Mantle 502, Manta timeout, Metis no CORS — left out
+  // Etherscan API V2 chains on the free tier (BNB Chain, Base, OP, Avalanche and Gnosis are paid-only there)
+  const ES_IDS = { eth: 1, pol: 137, arb: 42161, linea: 59144, celo: 42220, frax: 252, mantle: 5000, taiko: 167000, world: 480, sonic: 146,
+    uni: 130, abs: 2741, bera: 80094, monad: 143, hype: 999, sei: 1329, plasma: 9745, blast: 81457 };
+  const MORALIS = { eth: "0x1", bsc: "0x38", pol: "0x89", arb: "0xa4b1", base: "0x2105", op: "0xa", avax: "0xa86a", linea: "0xe708",
+    gnosis: "0x64", cronos: "0x19", glmr: "0x504", ronin: "0x7e4", ftm: "0xfa" };
+  const TX_PAGES = { btc: "https://mempool.space/tx/", ltc: "https://litecoinspace.org/tx/", sol: "https://solscan.io/tx/",
+    trx: "https://tronscan.org/#/transaction/", ton: "https://tonviewer.com/transaction/", xrp: "https://livenet.xrpl.org/transactions/",
+    xlm: "https://stellar.expert/explorer/public/tx/" };
+  const txUrl = (chain, hash) => !hash ? null : TX_PAGES[chain] ? TX_PAGES[chain] + hash
+    : CHAINS[chain] && CHAINS[chain].kind === "evm" ? CHAINS[chain].explorer("").replace(/\/address\/$/, "/tx/") + hash : null;
+  const TX_KINDS = new Set(["evm", "btc", "ltc", "sol", "trx", "ton", "xrp", "xlm"]);
+  const txSupported = w => w.chain === "evmall" || (CHAINS[w.chain] && TX_KINDS.has(CHAINS[w.chain].kind));
+  const wName = w => w.label || (w.chain === "evmall" ? "EVM wallet" : CHAINS[w.chain].name + " wallet");
+  const STABLE_TX = /^(USDT|USDC|USD₮|USD₮0|USDT0|USDC\.E|USDT\.E|BSC-USD)$/i;
+
+  let txKeys = store.get("lw.txkeys", { moralis: "", etherscan: "" });
+  const txData = store.get("lw.tx", {});            // wallet id -> { rows, notes, at, error }
+  let txDex = store.get("lw.txdx", {});             // "chain:contract" -> USD price (null = none found)
+  const txLoading = new Set();
+  let txWallet = store.get("lw.txw", "all"), txNet = "all", txHideSpam = store.get("lw.txspam", true);
+  const txClosed = new Set(store.get("lw.txclosed", []));
+  const txShow = {};
+
+  const dirOf = (me, f, t) => { const a = lower(f || ""), b = lower(t || ""); return a === me && b === me ? "self" : a === me ? "out" : "in"; };
+  const nativeRow = (key, base, amount) => ({ ...base, sym: CHAINS[key].sym, amount, cg: CHAINS[key].cg, native: true, spam: !(amount > 0) });
+  // One of the chain's configured stablecoins? -> "USDT" / "USDC"
+  function knownToken(key, contract) {
+    const c = lower(contract || "");
+    for (const [sym, v] of Object.entries(CHAINS[key].tokens || {})) {
+      if (Array.isArray(v) && v.some(([a]) => lower(a) === c)) return sym;
+      if (typeof v === "string" && lower(v) === c) return sym;
+    }
+    return null;
+  }
+  // listed: true/false = on/off CoinGecko's token list for the chain, null = no list to check against
+  function tokRow(key, base, contract, sym, amount, listed, flagged) {
+    const k = knownToken(key, contract);
+    const ok = !!k || (listed !== false && !flagged);
+    const cg = k ? TOKENS[k].cg : ok && STABLE_TX.test(sym) ? (/USDC/i.test(sym) ? TOKENS.USDC.cg : TOKENS.USDT.cg) : null;
+    return { ...base, sym: k || String(sym).slice(0, 16), amount, cg, contract, spam: !ok || !(amount > 0) };
+  }
+  const trustSets = {};
+  const trustSet = key => !DISCOVER[key] ? Promise.resolve(null) : trustSets[key] || (trustSets[key] =
+    tokenList(key).then(l => new Set(l.map(t => lower(t.address)))).catch(() => { delete trustSets[key]; return null; }));
+  async function pool(items, n, fn) {
+    const out = new Array(items.length); let i = 0;
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } }));
+    return out;
+  }
+
+  // --- EVM: Moralis (key) -> Etherscan (key) -> Blockscout (keyless), first one that works ---
+  async function esCall(base, params) {
+    const j = await fetchJSON(base + (base.includes("?") ? "&" : "?") + new URLSearchParams(params));
+    if (Array.isArray(j.result)) return j.result;
+    if (/no .*found/i.test(j.message || "") || /no .*found/i.test(String(j.result || ""))) return [];
+    throw new Error(typeof j.result === "string" && j.result ? j.result : j.message || "API error");
+  }
+  let esQ = Promise.resolve(); // Etherscan free tier allows a few calls per second; queue them
+  const esThrottle = fn => { const p = esQ.then(fn); esQ = p.catch(() => {}).then(() => new Promise(r => setTimeout(r, 400))); return p; };
+  async function esRows(key, addr, call) {
+    const q = { module: "account", address: addr, page: 1, offset: TX_LIMIT, sort: "desc" };
+    const [txs, internal, toks, ls] = await Promise.all([
+      call({ ...q, action: "txlist" }),
+      call({ ...q, action: "txlistinternal" }).catch(() => []),
+      call({ ...q, action: "tokentx" }),
+      trustSet(key),
+    ]);
+    const me = lower(addr), out = [];
+    const base = (x, hash) => ({ chain: key, hash, t: Number(x.timeStamp) * 1000, from: x.from, to: x.to || x.contractAddress, dir: dirOf(me, x.from, x.to) });
+    for (const x of [...txs, ...internal]) {
+      if (x.isError === "1") continue;
+      const v = units(x.value, 18);
+      if (v > 0) out.push(nativeRow(key, base(x, x.hash || x.transactionHash), v));
+    }
+    for (const x of toks) {
+      if (x.tokenDecimal === "" || x.tokenDecimal == null) continue; // NFTs
+      out.push(tokRow(key, base(x, x.hash), x.contractAddress, x.tokenSymbol || "?", units(x.value, Number(x.tokenDecimal)), ls ? ls.has(lower(x.contractAddress)) : null, false));
+    }
+    return out;
+  }
+  const txBlockscout = (key, addr) => esRows(key, addr, p => esCall(BLOCKSCOUT[key] + "/api", p));
+  const txEtherscan = (key, addr) => esRows(key, addr, p => esThrottle(() => esCall("https://api.etherscan.io/v2/api", { chainid: ES_IDS[key], ...p, apikey: txKeys.etherscan })));
+  async function txMoralis(key, addr) {
+    const [j, ls] = await Promise.all([
+      fetchJSON(`https://deep-index.moralis.io/api/v2.2/wallets/${addr}/history?chain=${MORALIS[key]}&order=DESC&limit=${TX_LIMIT}&include_internal_transactions=true`,
+        { headers: { "X-API-Key": txKeys.moralis, accept: "application/json" } }),
+      trustSet(key),
+    ]);
+    const me = lower(addr), out = [];
+    for (const x of (j && j.result) || []) {
+      if (String(x.receipt_status) === "0") continue;
+      const t = Date.parse(x.block_timestamp);
+      for (const n of x.native_transfers || []) {
+        const v = units(n.value, 18); if (!(v > 0)) continue;
+        out.push({ ...nativeRow(key, { chain: key, hash: x.hash, t, from: n.from_address, to: n.to_address, dir: dirOf(me, n.from_address, n.to_address) }, v),
+          fromName: n.from_address_label || undefined, toName: n.to_address_label || undefined });
+      }
+      for (const e of x.erc20_transfers || []) {
+        if (e.token_decimals == null || e.token_decimals === "") continue;
+        const listed = ls ? ls.has(lower(e.address)) || !!e.verified_contract : e.verified_contract ? true : null;
+        out.push({ ...tokRow(key, { chain: key, hash: x.hash, t, from: e.from_address, to: e.to_address, dir: dirOf(me, e.from_address, e.to_address) },
+          e.address, e.token_symbol || "?", units(e.value, Number(e.token_decimals)), listed, !!(e.possible_spam || x.possible_spam)),
+          fromName: e.from_address_label || undefined, toName: e.to_address_label || undefined });
+      }
+    }
+    return out;
+  }
+  // BNB Chain without a key: Binplorer (Ethplorer for BSC) and its public "freekey"
+  const bigUnits = (v, dec) => /^\d+$/.test(String(v)) ? units(String(v), dec) : Number(v) / 10 ** dec; // it sometimes sends 1.2e+21
+  async function txBinplorer(key, addr) {
+    const b = "https://api.binplorer.com/", q = `?apiKey=freekey&limit=${TX_LIMIT}`;
+    const [hist, nat, ls] = await Promise.all([
+      fetchJSON(`${b}getAddressHistory/${addr}${q}&type=transfer`),
+      fetchJSON(`${b}getAddressTransactions/${addr}${q}`).catch(() => []),
+      trustSet(key),
+    ]);
+    if (hist && hist.error) throw new Error(hist.error.message || "Binplorer error");
+    const me = lower(addr), out = [];
+    for (const x of Array.isArray(nat) ? nat : []) {
+      if (x.success === false || !(Number(x.value) > 0)) continue;
+      out.push(nativeRow(key, { chain: key, hash: x.hash, t: x.timestamp * 1000, from: x.from, to: x.to, dir: dirOf(me, x.from, x.to) },
+        x.rawValue ? bigUnits(x.rawValue, 18) : Number(x.value)));
+    }
+    for (const x of (hist && hist.operations) || []) {
+      const ti = x.tokenInfo || {};
+      if (ti.decimals == null || ti.decimals === "" || !ti.address) continue;
+      out.push(tokRow(key, { chain: key, hash: x.transactionHash, t: x.timestamp * 1000, from: x.from, to: x.to, dir: dirOf(me, x.from, x.to) },
+        ti.address, ti.symbol || "?", bigUnits(x.value, Number(ti.decimals)), ls ? ls.has(lower(ti.address)) : null, false));
+    }
+    return out;
+  }
+  const KEYLESS = { bsc: txBinplorer };
+  async function txEvm(key, addr) {
+    const src = [];
+    if (txKeys.moralis && MORALIS[key]) src.push(txMoralis);
+    if (txKeys.etherscan && ES_IDS[key]) src.push(txEtherscan);
+    if (KEYLESS[key]) src.push(KEYLESS[key]);
+    if (BLOCKSCOUT[key]) src.push(txBlockscout);
+    if (!src.length) { const e = new Error("no source"); e.needsKey = !!ES_IDS[key]; /* only Etherscan still has a free key */ e.noSource = true; throw e; }
+    let last;
+    for (const fn of src) { try { return await fn(key, addr); } catch (e) { last = e; } }
+    throw last;
+  }
+  // Which networks to read for an "All EVM networks" wallet: ones it holds something on, or has sent from
+  async function evmChainsFor(w) {
+    if (w.chain !== "evmall") return [w.chain];
+    const held = new Set(holdings(w).filter(h => h.amount > 0).map(h => h.chain));
+    const used = await Promise.all(EVM_KEYS.map(k => held.has(k) ? true
+      : rpc(CHAINS[k].rpc, "eth_getTransactionCount", [w.addr, "latest"]).then(n => BigInt(n || 0) > 0n).catch(() => false)));
+    return EVM_KEYS.filter((k, i) => used[i]);
+  }
+
+  // --- Bitcoin / Litecoin: net change per transaction ---
+  async function txUtxo(key, addr) {
+    const host = key === "btc" ? "https://blockstream.info/api" : "https://litecoinspace.org/api"; // same Esplora API as the balance check
+    const j = await fetchJSON(`${host}/address/${addr}/txs`);
+    const me = lower(addr), out = [];
+    for (const x of j || []) {
+      let got = 0, spent = 0;
+      const ins = x.vin.map(v => v.prevout && v.prevout.scriptpubkey_address).filter(Boolean);
+      for (const v of x.vin) if (v.prevout && lower(v.prevout.scriptpubkey_address || "") === me) spent += v.prevout.value;
+      for (const v of x.vout) if (lower(v.scriptpubkey_address || "") === me) got += v.value;
+      const net = got - spent; if (!net) continue;
+      const dir = net > 0 ? "in" : "out";
+      const from = dir === "in" ? (ins.find(a => lower(a) !== me) || ins[0] || "") : addr;
+      const to = dir === "out" ? ((x.vout.find(v => v.scriptpubkey_address && lower(v.scriptpubkey_address) !== me) || {}).scriptpubkey_address || "") : addr;
+      out.push(nativeRow(key, { chain: key, hash: x.txid, t: x.status && x.status.block_time ? x.status.block_time * 1000 : Date.now(), from, to, dir }, Math.abs(net) / 1e8));
+    }
+    return out;
+  }
+
+  // --- Solana: SOL and token balance changes of this account in each recent transaction ---
+  async function txSol(addr) {
+    const c = CHAINS.sol;
+    const [sigs, list] = await Promise.all([
+      rpcAny("sol", c.rpcs, "getSignaturesForAddress", [addr, { limit: 30 }]),
+      tokenList("sol").catch(() => null),
+    ]);
+    const listed = list ? new Set(list.map(t => t.address)) : null;
+    const symOf = list ? new Map(list.map(t => [t.address, t.symbol])) : new Map();
+    const txs = await pool(sigs || [], 4, s => s.err ? null : rpcAny("sol", c.rpcs, "getTransaction", [s.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }]).catch(() => null));
+    const out = [];
+    (sigs || []).forEach((s, i) => {
+      const tx = txs[i]; if (!tx || !tx.meta || tx.meta.err) return;
+      const base = { chain: "sol", hash: s.signature, t: (tx.blockTime || s.blockTime || 0) * 1000 };
+      const keys = tx.transaction.message.accountKeys.map(k => typeof k === "string" ? k : k.pubkey);
+      const me = keys.indexOf(addr);
+      if (me >= 0) {
+        const pre = tx.meta.preBalances, post = tx.meta.postBalances;
+        let d = post[me] - pre[me]; if (me === 0) d += tx.meta.fee; // show the transfer, not the network fee
+        if (Math.abs(d) >= 1000) {
+          let other = -1, best = 0;
+          keys.forEach((k, j) => { if (j === me) return; const od = post[j] - pre[j]; if (Math.sign(od) === -Math.sign(d) && Math.abs(od) > best) { best = Math.abs(od); other = j; } });
+          const cp = other >= 0 ? keys[other] : "";
+          out.push(nativeRow("sol", { ...base, dir: d > 0 ? "in" : "out", from: d > 0 ? cp : addr, to: d > 0 ? addr : cp }, Math.abs(d) / 1e9));
+        }
+      }
+      const tb = {};
+      const add = (arr, sign) => (arr || []).forEach(b => {
+        const k = b.owner + "|" + b.mint, v = Number(b.uiTokenAmount.uiAmountString ?? b.uiTokenAmount.uiAmount ?? 0);
+        (tb[k] = tb[k] || { owner: b.owner, mint: b.mint, d: 0 }).d += sign * v;
+      });
+      add(tx.meta.preTokenBalances, -1); add(tx.meta.postTokenBalances, 1);
+      const all = Object.values(tb);
+      for (const e of all) {
+        if (e.owner !== addr || Math.abs(e.d) < 1e-12) continue;
+        const cpE = all.filter(o => o.mint === e.mint && o.owner !== addr && Math.sign(o.d) === -Math.sign(e.d)).sort((a, b) => Math.abs(b.d) - Math.abs(a.d))[0];
+        const cp = cpE ? cpE.owner : "";
+        out.push(tokRow("sol", { ...base, dir: e.d > 0 ? "in" : "out", from: e.d > 0 ? cp : addr, to: e.d > 0 ? addr : cp },
+          e.mint, symOf.get(e.mint) || short(e.mint), Math.abs(e.d), listed ? listed.has(e.mint) : null, false));
+      }
+    });
+    return out;
+  }
+
+  // --- Tron: TRC-20 transfers + plain TRX transfers ---
+  async function tronB58(hex) { // 41… hex address -> T… base58check
+    if (!/^41[0-9a-f]{40}$/i.test(hex || "")) return hex || "";
+    const bytes = new Uint8Array(hex.match(/../g).map(h => parseInt(h, 16)));
+    const h2 = new Uint8Array(await crypto.subtle.digest("SHA-256", await crypto.subtle.digest("SHA-256", bytes)));
+    const all = [...bytes, ...h2.slice(0, 4)];
+    let n = 0n; for (const b of all) n = n * 256n + BigInt(b);
+    let s = ""; while (n > 0n) { s = B58[Number(n % 58n)] + s; n /= 58n; }
+    for (const b of all) { if (b !== 0) break; s = "1" + s; }
+    return s;
+  }
+  async function txTrx(addr) {
+    const base = "https://api.trongrid.io/v1/accounts/" + addr;
+    const [t20, nat, ls] = await Promise.all([
+      fetchJSON(base + "/transactions/trc20?only_confirmed=true&limit=" + TX_LIMIT),
+      fetchJSON(base + "/transactions?only_confirmed=true&limit=" + TX_LIMIT).catch(() => ({ data: [] })),
+      trustSet("trx"),
+    ]);
+    const me = lower(addr), out = [];
+    for (const x of t20.data || []) {
+      const ti = x.token_info || {};
+      out.push(tokRow("trx", { chain: "trx", hash: x.transaction_id, t: x.block_timestamp, from: x.from, to: x.to, dir: dirOf(me, x.from, x.to) },
+        ti.address || "", ti.symbol || "?", units(x.value, Number(ti.decimals) || 0), ls ? ls.has(lower(ti.address || "")) : null, false));
+    }
+    for (const x of nat.data || []) {
+      const c = x.raw_data && x.raw_data.contract && x.raw_data.contract[0];
+      if (!c || c.type !== "TransferContract" || (x.ret && x.ret[0] && x.ret[0].contractRet && x.ret[0].contractRet !== "SUCCESS")) continue;
+      const v = c.parameter.value, from = await tronB58(v.owner_address), to = await tronB58(v.to_address);
+      out.push(nativeRow("trx", { chain: "trx", hash: x.txID, t: x.block_timestamp, from, to, dir: dirOf(me, from, to) }, (v.amount || 0) / 1e6));
+    }
+    return out;
+  }
+
+  // --- TON: TON and jetton transfers from tonapi events ---
+  async function txTon(addr) {
+    const u = "https://tonapi.io/v2/accounts/" + encodeURIComponent(addr);
+    const [acct, ev] = await Promise.all([fetchJSON(u), fetchJSON(u + "/events?limit=" + TX_LIMIT)]);
+    const me = lower(acct.address || addr), out = [];
+    for (const e of ev.events || []) for (const a of e.actions || []) {
+      if (a.status && a.status !== "ok") continue;
+      const base = { chain: "ton", hash: e.event_id, t: e.timestamp * 1000 };
+      const x = a[a.type]; if (!x) continue;
+      const from = (x.sender && x.sender.address) || "", to = (x.recipient && x.recipient.address) || "";
+      const names = { fromName: (x.sender && x.sender.name) || undefined, toName: (x.recipient && x.recipient.name) || undefined };
+      if (a.type === "TonTransfer") {
+        const r = nativeRow("ton", { ...base, from, to, dir: dirOf(me, from, to), ...names }, Number(x.amount) / 1e9);
+        out.push({ ...r, spam: r.spam || !!e.is_scam });
+      } else if (a.type === "JettonTransfer") {
+        const j = x.jetton || {}, sym = j.symbol || "?", ok = j.verification === "whitelist" && !e.is_scam, usdt = ok && /^USD[₮T]0?$/.test(sym);
+        const amount = units(x.amount, j.decimals ?? 9);
+        out.push({ ...base, from, to, dir: dirOf(me, from, to), ...names, sym: usdt ? "USDT" : sym.slice(0, 16), amount, cg: usdt ? TOKENS.USDT.cg : null, contract: j.address || "", spam: !ok || !(amount > 0) });
+      }
+    }
+    return out;
+  }
+
+  // --- XRP Ledger: payments ---
+  const hexAscii = h => (h.replace(/(00)+$/, "").match(/../g) || []).map(b => String.fromCharCode(parseInt(b, 16))).join("") || h;
+  async function txXrp(addr) {
+    const j = await post("https://xrplcluster.com/", { method: "account_tx", params: [{ account: addr, limit: TX_LIMIT, ledger_index_min: -1, ledger_index_max: -1 }] });
+    if (j.result && j.result.error === "actNotFound") return [];
+    if (j.result && j.result.error) throw new Error(j.result.error_message || j.result.error);
+    const me = lower(addr), out = [];
+    for (const it of (j.result && j.result.transactions) || []) {
+      const tx = it.tx || it.tx_json || {}, m = it.meta || {};
+      if (tx.TransactionType !== "Payment" || m.TransactionResult !== "tesSUCCESS") continue;
+      const amt = m.delivered_amount ?? tx.Amount ?? tx.DeliverMax;
+      const base = { chain: "xrp", hash: it.hash || tx.hash, t: ((tx.date || 0) + 946684800) * 1000, from: tx.Account, to: tx.Destination, dir: dirOf(me, tx.Account, tx.Destination) };
+      if (typeof amt === "string") out.push(nativeRow("xrp", base, Number(amt) / 1e6));
+      else if (amt && amt.currency) {
+        const code = amt.currency.length === 40 ? hexAscii(amt.currency) : amt.currency;
+        const usdc = code === "USDC" && amt.issuer === "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE", amount = Math.abs(Number(amt.value));
+        out.push({ ...base, sym: usdc ? "USDC" : code.slice(0, 16), amount, cg: usdc ? TOKENS.USDC.cg : null, contract: amt.issuer, spam: !(amount > 0) });
+      }
+    }
+    return out;
+  }
+
+  // --- Stellar: payments and account funding ---
+  async function txXlm(addr) {
+    const j = await fetchJSON(`https://horizon.stellar.org/accounts/${addr}/payments?order=desc&limit=${TX_LIMIT}`, { notFoundOk: true });
+    if (!j) return [];
+    const me = lower(addr), out = [];
+    for (const p of (j._embedded && j._embedded.records) || []) {
+      if (p.transaction_successful === false) continue;
+      const base = { chain: "xlm", hash: p.transaction_hash, t: Date.parse(p.created_at) };
+      if (p.type === "create_account") { out.push(nativeRow("xlm", { ...base, from: p.funder, to: p.account, dir: dirOf(me, p.funder, p.account) }, Number(p.starting_balance))); continue; }
+      if (!/payment/.test(p.type)) continue;
+      const b2 = { ...base, from: p.from, to: p.to, dir: dirOf(me, p.from, p.to) };
+      if (p.asset_type === "native") out.push(nativeRow("xlm", b2, Number(p.amount)));
+      else {
+        const usdc = p.asset_code === "USDC" && p.asset_issuer === "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN", amount = Number(p.amount);
+        out.push({ ...b2, sym: usdc ? "USDC" : String(p.asset_code).slice(0, 16), amount, cg: usdc ? TOKENS.USDC.cg : null, contract: p.asset_issuer, spam: !(amount > 0) });
+      }
+    }
+    return out;
+  }
+
+  async function fetchTx(w) {
+    const notes = [];
+    let rows = [];
+    if (w.chain === "evmall" || CHAINS[w.chain].kind === "evm") {
+      const keys = await evmChainsFor(w);
+      const res = await Promise.allSettled(keys.map(k => txEvm(k, w.addr)));
+      const needKey = [], none = [], failed = [];
+      res.forEach((r, i) => {
+        const n = CHAINS[keys[i]].name;
+        if (r.status === "fulfilled") rows.push(...r.value);
+        else if (r.reason && r.reason.noSource) (r.reason.needsKey ? needKey : none).push(n);
+        else failed.push(`${n} (${r.reason ? r.reason.message : "error"})`);
+      });
+      if (needKey.length) notes.push(`${needKey.join(", ")}: add a free Etherscan key (key button above) to load ${needKey.length === 1 ? "this network" : "these networks"}`);
+      if (none.length) notes.push(`No history service available for: ${none.join(", ")}`);
+      if (failed.length) notes.push(`Couldn't load: ${failed.join(", ")}`);
+      if (keys.length && failed.length === keys.length) throw new Error("Couldn't load history: " + failed.join(", "));
+    } else {
+      const k = CHAINS[w.chain].kind;
+      rows = k === "btc" || k === "ltc" ? await txUtxo(w.chain, w.addr) : k === "sol" ? await txSol(w.addr) : k === "trx" ? await txTrx(w.addr)
+        : k === "ton" ? await txTon(w.addr) : k === "xrp" ? await txXrp(w.addr) : await txXlm(w.addr);
+    }
+    const seen = new Set();
+    rows = rows.filter(r => {
+      const id = [r.chain, r.hash, r.dir, r.sym, r.contract || "", r.amount, r.from, r.to].join("|");
+      if (seen.has(id)) return false; seen.add(id); return true;
+    }).sort((a, b) => b.t - a.t);
+    return { rows: rows.slice(0, 500), notes, at: Date.now() };
+  }
+
+  // DexScreener USD prices for trusted tokens that aren't priced elsewhere
+  async function txDexPrices() {
+    const need = {};
+    for (const d of Object.values(txData)) for (const r of d.rows || []) {
+      if (r.native || r.cg || r.spam || !r.contract || !DISCOVER[r.chain]) continue;
+      if (!((r.chain + ":" + lower(r.contract)) in txDex)) (need[r.chain] = need[r.chain] || new Set()).add(r.contract);
+    }
+    await Promise.all(Object.entries(need).map(async ([key, set]) => {
+      const norm = CHAINS[key].kind === "evm" ? lower : same;
+      try {
+        const p = await dexPrices(key, [...set], norm);
+        for (const a of set) txDex[key + ":" + lower(a)] = p[norm(a)] ? p[norm(a)].usd : null;
+      } catch {}
+    }));
+  }
+  function txPrice(r) { // price per unit in the chosen currency, today
+    if (r.cg) return px(r.cg);
+    const d = r.contract ? txDex[r.chain + ":" + lower(r.contract)] : null;
+    if (d == null) return null;
+    const t = prices.tether, rate = t && t.usd ? t[currency] / t.usd : currency === "usd" ? 1 : null;
+    return rate != null ? d * rate : null;
+  }
+
+  function saveTx() {
+    const keep = {};
+    for (const w of wallets) { const d = txData[w.id]; if (d && d.rows) keep[w.id] = { rows: d.rows, notes: d.notes || [], at: d.at }; }
+    store.set("lw.tx", keep);
+    const used = new Set(Object.values(keep).flatMap(d => d.rows.map(r => r.chain + ":" + lower(r.contract || ""))));
+    txDex = Object.fromEntries(Object.entries(txDex).filter(([k]) => used.has(k)));
+    store.set("lw.txdx", txDex);
+  }
+  async function loadTx(list = wallets) {
+    const todo = list.filter(w => txSupported(w) && !txLoading.has(w.id));
+    if (!todo.length) return;
+    todo.forEach(w => txLoading.add(w.id));
+    renderTx();
+    await Promise.all(todo.map(async w => {
+      try { txData[w.id] = await fetchTx(w); }
+      catch (e) { txData[w.id] = { ...(txData[w.id] || {}), error: e.message }; }
+      txLoading.delete(w.id);
+      renderTx();
+    }));
+    await txDexPrices();
+    saveTx();
+    renderTx();
+  }
+
+  const agoShort = t => {
+    const s = (Date.now() - t) / 1000;
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    if (s < 86400) return Math.floor(s / 3600) + "h ago";
+    if (s < 86400 * 30) return Math.floor(s / 86400) + "d ago";
+    return new Date(t).toLocaleDateString([], { day: "numeric", month: "short", year: "2-digit" });
+  };
+  const shortTx = a => a.length > 13 ? a.slice(0, 6) + "…" + a.slice(-4) : a;
+  function party(a, name, lbl) {
+    if (!a) return '<span class="party">—</span>';
+    const mine = lbl.get(lower(a)), l = mine || name;
+    return `<span class="party${mine ? " me" : ""}" title="${esc(a)}">${l ? `<b>${esc(l)}</b> ` : ""}[${esc(shortTx(a))}]</span>`;
+  }
+  function txRowHTML(r, lbl) {
+    const p = txPrice(r), v = p != null ? r.amount * p : null;
+    const sg = r.dir === "out" ? "−" : r.dir === "in" ? "+" : "", cls = r.dir === "out" ? "down" : r.dir === "in" ? "up" : "";
+    const url = txUrl(r.chain, r.hash), when = new Date(r.t).toLocaleString();
+    return `<div class="txrow${r.spam ? " spam" : ""}">
+      <div class="x-chain" title="${esc(CHAINS[r.chain].name)}">${chainLogo(r.chain, "sm")}</div>
+      <div><span class="act ${r.dir}">${r.dir === "in" ? "Received" : r.dir === "out" ? "Sent" : "Self"}</span>${r.spam ? '<span class="tag spamtag">Spam</span>' : ""}</div>
+      <div class="x-from">${party(r.from, r.fromName, lbl)}</div>
+      <div class="x-to">${party(r.to, r.toName, lbl)}</div>
+      <div class="txamt"><span class="num ${cls}">${sg}${fmtAmt(r.amount)}</span>${logo(r.cg || "", r.sym, r.native ? CHAINS[r.chain].color : `hsl(${hueOf(r.sym)} 45% 45%)`, "sm")}<span class="tsym" title="${esc(r.contract || r.sym)}">${esc(r.sym)}</span></div>
+      <div class="r"><span class="num">${v == null ? "—" : sg + fmtMoney(v)}</span><div class="sub only-s" title="${esc(when)}">${esc(agoShort(r.t))}</div></div>
+      <div class="r x-time sub" title="${esc(when)}">${esc(agoShort(r.t))}</div>
+      <div>${url ? `<a class="icon" href="${esc(url)}" target="_blank" rel="noopener" title="Open transaction in explorer" aria-label="Open transaction in explorer">${icons.ext}</a>` : ""}</div>
+    </div>`;
+  }
+
+  function renderTx() {
+    const box = $("txlist");
+    const ws = wallets.filter(txSupported);
+    if (txWallet !== "all" && !ws.some(w => w.id === txWallet)) txWallet = "all";
+    $("txw").innerHTML = `<option value="all">All addresses (${ws.length})</option>` + ws.map(w => `<option value="${esc(w.id)}">${esc(wName(w))} · ${esc(short(w.addr))}</option>`).join("");
+    $("txw").value = txWallet;
+    const shownW = txWallet === "all" ? ws : ws.filter(w => w.id === txWallet);
+    const nets = new Set(shownW.flatMap(w => ((txData[w.id] || {}).rows || []).map(r => r.chain)));
+    if (txNet !== "all" && !nets.has(txNet)) txNet = "all";
+    $("txn").innerHTML = `<option value="all">All networks</option>` + [...nets].sort().map(k => `<option value="${k}">${esc(CHAINS[k].name)}</option>`).join("");
+    $("txn").value = txNet;
+    $("txspam").checked = txHideSpam;
+    $("txreload").classList.toggle("spin", txLoading.size > 0);
+    const ats = shownW.map(w => (txData[w.id] || {}).at).filter(Boolean);
+    $("txat").textContent = ats.length ? "Updated " + agoShort(Math.min(...ats)) : "";
+    if (!wallets.length) { box.innerHTML = emptyState(); $("txhint").textContent = ""; return; }
+
+    const lbl = new Map(wallets.map(w => [lower(w.addr), wName(w)]));
+    const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    const head = `<div class="txhead"><div class="x-chain">Chain</div><div>Action</div><div class="x-from">From</div><div class="x-to">To</div><div class="r">Amount</div><div class="r">Value</div><div class="r x-time">Time</div><div>Tx</div></div>`;
+    let total = 0, hidden = 0;
+    const blocks = shownW.map(w => {
+      const d = txData[w.id] || {}, loading = txLoading.has(w.id);
+      let rows = (d.rows || []).filter(r => txNet === "all" || r.chain === txNet);
+      const spamN = rows.filter(r => r.spam).length;
+      if (txHideSpam) { rows = rows.filter(r => !r.spam); hidden += spamN; }
+      total += rows.length;
+      let inV = 0, outV = 0, anyV = false;
+      for (const r of rows) { const p = txPrice(r); if (p == null) continue; anyV = true; if (r.dir === "in") inV += r.amount * p; else if (r.dir === "out") outV += r.amount * p; }
+      const open = !txClosed.has(w.id), n = txShow[w.id] || TX_PAGE, gid = "txg-" + w.id;
+      let body = "";
+      if (open) {
+        if (!d.rows && loading) body = head + Array.from({ length: 3 }, () => `<div class="txrow"><div class="x-chain"><span class="skeleton circ" style="width:22px;height:22px"></span></div><div><span class="skeleton" style="width:64px"></span></div><div class="x-from"><span class="skeleton" style="width:90%"></span></div><div class="x-to"><span class="skeleton" style="width:90%"></span></div><div class="r"><span class="skeleton"></span></div><div class="r"><span class="skeleton" style="width:60px"></span></div><div class="r x-time"><span class="skeleton" style="width:40px"></span></div><div></div></div>`).join("");
+        else if (!d.rows && d.error) body = `<div class="txnote err">${esc(d.error)}</div>`;
+        else if (!d.rows) body = `<div class="pempty">Not loaded yet. Press reload to fetch this address's transactions.</div>`;
+        else {
+          body = (d.error ? `<div class="txnote err">Last reload failed: ${esc(d.error)}</div>` : "") + (d.notes || []).map(t => `<div class="txnote">${esc(t)}</div>`).join("");
+          body += rows.length
+            ? head + rows.slice(0, n).map(r => txRowHTML(r, lbl)).join("") + (rows.length > n ? `<div class="txmore"><button type="button" class="btn" data-txmore="${esc(w.id)}">Show ${Math.min(TX_PAGE, rows.length - n)} more · ${rows.length - n} left</button></div>` : "")
+            : `<div class="pempty">${spamN && txHideSpam ? `Only spam transfers here (${spamN} hidden).` : "No transfers found."}</div>`;
+        }
+      }
+      const sum = !d.rows && loading ? '<span class="skeleton" style="width:90px"></span>'
+        : `<span>${rows.length} transfer${rows.length === 1 ? "" : "s"}</span>${anyV ? `<span class="num up">In ${fmtMoney(inV)}</span><span class="num down">Out ${fmtMoney(outV)}</span>` : ""}`;
+      return `<div class="txgrp"><button type="button" class="txgh" data-txg="${esc(w.id)}" aria-expanded="${open}" aria-controls="${gid}">
+          <div class="a-who">${chev}${chainLogo(w.chain)}<div class="t"><b>${esc(wName(w))}</b><span class="sub"><span class="mono" title="${esc(w.addr)}">${esc(short(w.addr))}</span> · ${esc(meta(w).name)}</span></div></div>
+          <div class="sum">${sum}</div>
+        </button><div id="${gid}">${body}</div></div>`;
+    }).join("");
+    const unsupported = txWallet === "all" ? wallets.filter(w => !txSupported(w)) : [];
+    box.innerHTML = blocks + (unsupported.length ? `<div class="txnote">Transaction history isn't available yet for ${esc(unsupported.map(w => `${wName(w)} (${meta(w).name})`).join(", "))}. Use the explorer link in the Wallets view.</div>` : "");
+    $("txhint").textContent = `${total} transfer${total === 1 ? "" : "s"}${hidden ? ` · ${hidden} spam hidden` : ""}`;
+  }
+
+  function txCSV() {
+    const ws = (txWallet === "all" ? wallets : wallets.filter(w => w.id === txWallet)).filter(txSupported);
+    const q = s => { s = String(s ?? ""); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; }; // no spreadsheet formulas from token names
+    const lines = [["Time (UTC)", "Wallet", "Wallet address", "Network", "Action", "From", "To", "Amount", "Token", "Token contract", `Value today (${currency.toUpperCase()})`, "Spam", "Tx hash", "Explorer"].map(q).join(",")];
+    for (const w of ws) for (const r of (txData[w.id] || {}).rows || []) {
+      if ((txNet !== "all" && r.chain !== txNet) || (txHideSpam && r.spam)) continue;
+      const p = txPrice(r), sg = r.dir === "out" ? -1 : 1;
+      lines.push([q(new Date(r.t).toISOString()), q(wName(w)), q(w.addr), q(CHAINS[r.chain].name), q(r.dir === "in" ? "Received" : r.dir === "out" ? "Sent" : "Self"),
+        q(r.from), q(r.to), sg * r.amount, q(r.sym), q(r.contract || ""), p != null ? (sg * r.amount * p).toFixed(2) : "", q(r.spam ? "yes" : ""), q(r.hash), q(txUrl(r.chain, r.hash) || "")].join(","));
+    }
+    if (lines.length < 2) { toast("No transactions to export"); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv" }));
+    a.download = `ledgerwatch-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  $("txw").addEventListener("change", e => { txWallet = e.target.value; store.set("lw.txw", txWallet); renderTx(); });
+  $("txn").addEventListener("change", e => { txNet = e.target.value; renderTx(); });
+  $("txspam").addEventListener("change", e => { txHideSpam = e.target.checked; store.set("lw.txspam", txHideSpam); renderTx(); });
+  $("txreload").addEventListener("click", () => { txAuto = true; loadTx(); });
+  $("txcsv").addEventListener("click", txCSV);
+  $("txkeysbtn").addEventListener("click", () => {
+    const p = $("txkeys"), on = p.hidden;
+    p.hidden = !on; $("txkeysbtn").setAttribute("aria-expanded", String(on));
+    if (on) { $("txk-moralis").value = txKeys.moralis || ""; $("txk-es").value = txKeys.etherscan || ""; }
+  });
+  $("txkeysave").addEventListener("click", () => {
+    txKeys = { moralis: $("txk-moralis").value.trim(), etherscan: $("txk-es").value.trim() };
+    store.set("lw.txkeys", txKeys);
+    $("txkeys").hidden = true; $("txkeysbtn").setAttribute("aria-expanded", "false");
+    toast("Keys saved. Reloading transactions…");
+    txAuto = true;
+    loadTx(wallets.filter(w => w.chain === "evmall" || CHAINS[w.chain].kind === "evm"));
+  });
+  $("txlist").addEventListener("click", e => {
+    const m = e.target.closest("[data-txmore]");
+    if (m) { txShow[m.dataset.txmore] = (txShow[m.dataset.txmore] || TX_PAGE) + TX_PAGE; renderTx(); return; }
+    const g = e.target.closest("[data-txg]"); if (!g) return;
+    const id = g.dataset.txg;
+    if (txClosed.has(id)) txClosed.delete(id); else txClosed.add(id);
+    store.set("lw.txclosed", [...txClosed]);
+    renderTx();
+    const again = $("txlist").querySelector(`[data-txg="${CSS.escape(id)}"]`); if (again) again.focus();
+  });
+  // Load history the first time the card scrolls into view (it's many requests, so not on every refresh)
+  let txAuto = false, txVisible = false, txReady = false; // txReady: first balance refresh finished
+  const txAutoLoad = () => { if (txAuto || !txVisible || !txReady || !wallets.length) return; txAuto = true; loadTx(); };
+  try { new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) { txVisible = true; txAutoLoad(); } }, { rootMargin: "200px" }).observe($("txcard")); }
+  catch { txVisible = true; }
+
   // ---------- Refresh ----------
   function saveCache() {
     const bal = {};
@@ -953,6 +2327,10 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     store.set("lw.bal", bal);
     if (Object.keys(prices).length) store.set("lw.px", prices);
     if (Object.keys(markets).length) store.set("lw.mk", markets);
+    // Keep DexScreener prices only for tokens someone still holds
+    const held = new Set(Object.values(bal).flatMap(b => b.lines.map(l => l.cg)));
+    dexInfo = Object.fromEntries(Object.entries(dexInfo).filter(([k]) => held.has(k)));
+    store.set("lw.dx", dexInfo);
     if (lastUpdated) store.set("lw.at", lastUpdated.getTime());
   }
   async function refreshAll() {
@@ -964,6 +2342,7 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     const priceJob = getPrices().then(() => { priceError = null; }).catch(e => { priceError = e.message; });
     const marketJob = getMarkets().catch(() => {}); // logos + sparklines are nice-to-have; keep the cached ones on failure
     await Promise.all([priceJob, marketJob, ...wallets.map(loadOne)]);
+    injectDex();
     $("pricestatus").textContent = priceError ? "Prices: " + priceError : "";
     lastUpdated = new Date();
     recordHistory();
@@ -976,6 +2355,7 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     try {
       const { lines, warn } = await fetchWallet(w);
       balances[w.id] = { lines, warn, loading: false };
+      injectDex();
     } catch (e) {
       balances[w.id] = { ...(balances[w.id] || {}), loading: false, error: e.message };
     }
@@ -998,9 +2378,10 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     const a = e.target.value.trim();
     const cur = sel.value;
     if (EVM_RE.test(a)) { if (cur !== "evmall" && CHAINS[cur].kind !== "evm") sel.value = "evmall"; }
-    else if (/^0x[a-fA-F0-9]{64}$/.test(a)) { if (cur !== "sui" && cur !== "apt") sel.value = "sui"; }
+    else if (/^0x[a-fA-F0-9]{64}$/.test(a)) { if (!["sui", "apt", "stark"].includes(cur)) sel.value = "sui"; }
+    else if (/^0x[a-fA-F0-9]{50,63}$/.test(a)) { if (!["apt", "stark"].includes(cur)) sel.value = "stark"; } // Starknet drops leading zeros
     else {
-      const order = ["btc", "trx", "ltc", "doge", "xrp", "ton", "ada", "xlm", "atom", "near", "sol"];
+      const order = ["btc", "bch", "trx", "ltc", "doge", "xrp", "ton", "ada", "xlm", "atom", "tia", "saga", "kas", "hbar", "dot", "tao", "near", "sol"];
       const hit = order.find(k => CHAINS[k].re.test(a));
       if (hit && !(cur !== "evmall" && CHAINS[cur].re.test(a) && CHAINS[cur].kind !== "evm")) sel.value = hit;
     }
@@ -1038,7 +2419,7 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     balances[w.id] = { loading: true };
     closeAdd();
     render();
-    loadOne(w).then(saveCache);
+    loadOne(w).then(() => { saveCache(); if (txAuto) loadTx([w]); }); // tx history after balances: EVM scans use them to pick networks
     toast("Wallet added");
   });
 
@@ -1050,7 +2431,7 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     if (act === "remove") {
       const gone = wallets.find(w => w.id === b.dataset.id), idx = wallets.indexOf(gone);
       wallets = wallets.filter(w => w !== gone);
-      confirmId = null; saveCache(); render(); toast("Wallet removed");
+      confirmId = null; saveCache(); saveTx(); render(); toast("Wallet removed");
       api.wallets.remove(gone.id).catch(err => {     // put it back if the delete failed
         wallets.splice(idx, 0, gone); render();
         toast("Couldn't remove wallet: " + (err.code || err.message));
@@ -1062,6 +2443,30 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     }
   });
 
+  $("assets").addEventListener("click", async e => {
+    const c = e.target.closest("[data-act='copy']");
+    if (c) {
+      try { await navigator.clipboard.writeText(c.dataset.addr); toast("Address copied"); }
+      catch { toast("Couldn't copy. Select the address by hand."); }
+      return;
+    }
+    const b = e.target.closest("[data-asset]"); if (!b) return;
+    const k = b.dataset.asset;
+    if (openAssets.has(k)) openAssets.delete(k); else openAssets.add(k);
+    store.set("lw.openas", [...openAssets]);
+    render();
+    const again = $("assets").querySelector(`[data-asset="${CSS.escape(k)}"]`); if (again) again.focus();
+  });
+
+  $("chains").addEventListener("click", e => {
+    const b = e.target.closest("[data-chain]"); if (!b) return;
+    const k = b.dataset.chain;
+    if (openChains.has(k)) openChains.delete(k); else openChains.add(k);
+    store.set("lw.opench", [...openChains]);
+    render();
+    const again = document.querySelector(`[data-chain="${k}"]`); if (again) again.focus(); // keep keyboard focus after re-render
+  });
+
   document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
     currency = b.dataset.cur; store.set("lw.cur", currency); render();
   }));
@@ -1071,6 +2476,13 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
   document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => {
     view = b.dataset.view; store.set("lw.view", view); render();
   }));
+  document.querySelectorAll("[data-mv]").forEach(b => b.addEventListener("click", () => {
+    mvRange = b.dataset.mv; store.set("lw.mvr", mvRange); if (mvLast) renderMovers(...mvLast);
+  }));
+  $("mvmap").addEventListener("change", e => { mvMap = e.target.checked; store.set("lw.mvm", mvMap); if (mvLast) renderMovers(...mvLast); });
+  // Re-lay the heat map when the card changes width
+  let mvW = 0;
+  try { new ResizeObserver(() => { const w = $("movers").clientWidth; if (w && w !== mvW) { mvW = w; if (mvLast && mvMap) renderMovers(...mvLast); } }).observe($("movers")); } catch {}
   $("refresh").addEventListener("click", refreshAll);
 
   // Theme: follows the device until you pick one
@@ -1244,19 +2656,32 @@ footer { font-size: 12px; color: var(--muted); display: flex; justify-content: s
     }
     document.documentElement.classList.remove("authing");
     render();
-    refreshAll();
+    // Balances first: "All EVM networks" wallets use them to decide which networks to read history from
+    refreshAll().then(() => { txReady = true; txAutoLoad(); });
     setInterval(() => { if (!document.hidden) refreshAll(); }, 120000);
   });
 })();
 </script>
 <script type="module">
   // Sign-in gate: send signed-out visitors to the login page, otherwise hand the account to the app
-  import { configured, whenUser, walletStore, logout } from "./auth.js";
-  if (!configured) location.replace("login.html");
-  else {
-    const user = await whenUser();
-    if (!user) location.replace("login.html");
-    else window.__lwAuthReady({ user, wallets: walletStore(user.uid), logout });
+  const bootFail = msg => {
+    console.error("[boot]", msg);
+    const s = document.querySelector(".boot span");
+    if (s && document.documentElement.classList.contains("authing"))
+      s.innerHTML = "Couldn't load: " + String(msg).replace(/[<>&]/g, "") + '<br><a href="" style="color:inherit">Retry</a> · <a href="login.html" style="color:inherit">Sign in again</a>';
+  };
+  // Safety net: never spin forever
+  setTimeout(() => bootFail("timed out after 20s (check the browser console, network, or ad-blocker)"), 20000);
+  try {
+    const { configured, whenUser, walletStore, logout } = await import("./auth.js");
+    if (!configured) location.replace("login.html");
+    else {
+      const user = await whenUser();
+      if (!user) location.replace("login.html");
+      else window.__lwAuthReady({ user, wallets: walletStore(user.uid), logout });
+    }
+  } catch (e) {
+    bootFail(e.code || e.message || e);
   }
 </script>
 </body>

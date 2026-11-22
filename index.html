@@ -161,6 +161,14 @@ header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srg
 .trow + .trow { border-top: 1px dashed var(--line); }
 .trow.th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; padding-block: 7px 3px; }
 .trow .a-who { gap: 10px; }
+/* Click a coin inside a chain to see its transfers on that chain */
+.ctgrp + .ctgrp { border-top: 1px dashed var(--line); }
+button.trow { width: 100%; border: 0; background: none; text-align: left; padding-left: 40px; }
+button.trow:hover { background: var(--surface); }
+button.trow[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--ink); }
+.cttx { margin: 2px 16px 10px 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.cttx .ctsum { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 9px 16px; font-size: 12.5px; color: var(--muted); }
+.cttx .txhead { border-top: 1px solid var(--line); }
 /* Assets view: click a coin to see which addresses hold it */
 .agrp + .agrp { border-top: 1px solid var(--line); }
 button.arow { width: 100%; border: 0; background: none; text-align: left; }
@@ -508,6 +516,8 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
       <div class="tabs" role="group" aria-label="Chart range">
         <button type="button" data-range="24h">24H</button>
         <button type="button" data-range="7d">7D</button>
+        <button type="button" data-range="1m">1M</button>
+        <button type="button" data-range="1y">1Y</button>
       </div>
     </div>
     <div class="hchart"><canvas id="ch-hero" aria-label="Portfolio value over time"></canvas><div class="hempty" id="heroempty">Add a wallet to see your portfolio over time.</div></div>
@@ -783,9 +793,14 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
   let currency = store.get("lw.cur", "inr");
   let theme = store.get("lw.theme", null);          // null = follow the device
   let view = store.get("lw.view", "assets");        // assets | wallets
-  let range = store.get("lw.range", "7d");          // 24h | 7d
+  let range = store.get("lw.range", "7d");          // 24h | 7d | 1m | 1y
+  const LONG = { "1m": 30, "1y": 365 };             // ranges that need CoinGecko market_chart history (days)
+  let longHist = store.get("lw.lh", {});            // range -> cg id -> {at, p: [[t, usd]...]}
+  let longBusy = false;
   const openChains = new Set(store.get("lw.opench", [])); // expanded rows in the Chains view
   const openAssets = new Set(store.get("lw.openas", [])); // expanded rows in the Assets view (shows holding addresses)
+  const openCoinTx = new Set(store.get("lw.opencoin", [])); // "chain|coin" rows in the Chains view showing their transfers
+  const coinTxShow = {}; let lastChains = null;
   let mvRange = store.get("lw.mvr", "24h");         // Gainers & losers period: 24h | 7d | 30d
   let mvMap = store.get("lw.mvm", true);            // Gainers & losers as heat map (true) or ranked list
   let mvLast = null;                                // last arguments, so period/toggle/resize can redraw just this card
@@ -942,7 +957,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     const like = (sym === "USDT" || sym === "USDC") ? TOKENS[sym] : Object.values(CHAINS).find(c => c.sym === sym && c.symMatch !== false);
     const cg = like ? like.cg : "dx:" + sym + ":" + name.toLowerCase();
     if (!like && p) dexInfo[cg] = { usd: p.usd, ch: p.ch, image: t.logoURI || p.image || null, name, mcap: p.mcap || null, at: Date.now() };
-    return { sym, amount: t.amount, cg, color: like ? like.color : `hsl(${hueOf(sym)} 45% 45%)`, chain: key, dx: true };
+    return { sym, amount: t.amount, cg, color: like ? like.color : `hsl(${hueOf(sym)} 45% 45%)`, chain: key, dx: true, addr: t.address || null };
   }
   // Price the tokens found and drop dust and spam. t.listed === false means the token isn't on CoinGecko's list,
   // so it is shown only when it has a real market (≥ $50k liquidity).
@@ -1161,7 +1176,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
         const amount = units(b.balance, j.decimals ?? 9), pr = b.price || {};
         const usd = pr.prices && pr.prices.USD, d = pr.diff_24h && pr.diff_24h.USD;
         if (!(usd > 0 && usd * amount >= 0.01)) continue;
-        lines.push(dxLine("ton", { symbol: j.symbol, name: j.name, logoURI: j.image, amount },
+        lines.push(dxLine("ton", { symbol: j.symbol, name: j.name, logoURI: j.image, amount, address: j.address },
           { usd, ch: d ? parseFloat(String(d).replace("−", "-")) : null }));
       }
       if (jet.error) lines.dxError = jet.error;
@@ -1290,6 +1305,54 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     injectDex();
   }
 
+  // 1M / 1Y history: fetched only when that range is picked, for the coins that make up ~all of the value
+  // (the free CoinGecko API is rate limited; the long tail is held flat at today's value)
+  const LONG_TTL = { "1m": 3 * 3600e3, "1y": 12 * 3600e3 };
+  function longCoins(assets) {
+    const priced = assets.filter(a => a.priced && a.value > 0).sort((a, b) => b.value - a.value);
+    const total = priced.reduce((s, a) => s + a.value, 0), out = [];
+    let acc = 0;
+    for (const a of priced) { if (out.length >= 15 || (out.length && acc >= total * 0.995)) break; out.push(a.cg); acc += a.value; }
+    return [...new Set(out)];
+  }
+  async function loadLong(r) {
+    if (!LONG[r] || longBusy) return;
+    const h = longHist[r] || (longHist[r] = {});
+    const need = longCoins(assetList()).filter(cg => !h[cg] || Date.now() - h[cg].at > LONG_TTL[r]);
+    if (!need.length) return;
+    longBusy = true; render();
+    await pool(need, 3, async cg => {
+      try {
+        const j = await fetchJSON(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(cg)}/market_chart?vs_currency=usd&days=${LONG[r]}`, { notFoundOk: true });
+        h[cg] = { at: Date.now(), p: ((j && j.prices) || []).map(([t, v]) => [t, +v.toPrecision(6)]) };
+      } catch { /* keep any older copy; this coin is held flat */ }
+    });
+    store.set("lw.lh", longHist);
+    longBusy = false;
+    if (range === r) render();
+  }
+  function longSeries(assets, total, r) {
+    const h = longHist[r]; if (!h) return null;
+    const parts = [], flat = [];
+    for (const a of assets.filter(a => a.priced)) {
+      const s = h[a.cg] && h[a.cg].p, f = fx(a.cg);
+      (s && s.length > 2 && f != null ? parts : flat).push({ a, s, f });
+    }
+    if (!parts.length) return null;
+    const grid = parts.reduce((b, p) => p.s.length > b.length ? p.s : b, []).map(x => x[0]); // densest coin sets the timeline
+    const base = flat.reduce((s, p) => s + p.a.value, 0);
+    const pts = grid.map(t => ({ t, v: base }));
+    for (const p of parts) {
+      let j = 0;
+      for (const pt of pts) {
+        while (j + 1 < p.s.length && p.s[j + 1][0] <= pt.t) j++; // last known price at or before t
+        pt.v += p.a.amount * p.s[j][1] * p.f;
+      }
+    }
+    pts.push({ t: Date.now(), v: total });
+    return pts;
+  }
+
   // ---------- Formatting ----------
   const fmtMoney = (v, cur = currency) => {
     if (v == null || isNaN(v)) return "—";
@@ -1367,8 +1430,10 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
       if (!(h.amount > 0)) continue;
       const c = m[h.chain] || (m[h.chain] = { key: h.chain, value: 0, priced: false, toks: {}, wallets: new Set() });
       c.wallets.add(w.id);
-      const t = c.toks[h.cg] || (c.toks[h.cg] = { cg: h.cg, sym: h.sym, color: h.color, amount: 0, value: 0, priced: false });
+      const t = c.toks[h.cg] || (c.toks[h.cg] = { cg: h.cg, sym: h.sym, color: h.color, amount: 0, value: 0, priced: false, addrs: new Set(), wallets: new Set() });
       t.amount += h.amount;
+      t.wallets.add(w.id);
+      if (h.addr) t.addrs.add(lower(h.addr));
       const p = px(h.cg);
       if (p != null) { const v = h.amount * p; t.value += v; c.value += v; t.priced = c.priced = true; }
     }
@@ -1438,7 +1503,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
 
     // Hero
     $("total").innerHTML = loadingAll || (wallets.length && !priced && busy) ? '<span class="skeleton big"></span>' : heroValue(priced ? total : 0);
-    const pts = series(assets, total);
+    const pts = LONG[range] ? longSeries(assets, total, range) : series(assets, total);
     const shown = pts ? (range === "24h" ? pts.slice(-26) : pts) : null;
     const del = $("delta");
     let d = null, p = null;
@@ -1693,7 +1758,45 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     }).join("");
   }
 
+  // Transfers of one coin on one chain, across every tracked wallet that holds it there
+  const coinTxMatch = (r, key, t) => {
+    if (r.chain !== key) return false;
+    if (!String(t.cg).startsWith("dx:")) return r.cg === t.cg; // native coins and known tokens
+    if (r.native || r.cg) return false;
+    if (r.contract && t.addrs.size) return t.addrs.has(lower(r.contract));
+    return String(r.sym).toUpperCase() === String(t.sym).toUpperCase();
+  };
+  function coinTxHTML(c, t, ck) {
+    const ws = wallets.filter(w => t.wallets.has(w.id) && txSupported(w));
+    if (!ws.length) return `<div class="cttx"><div class="pempty">Transaction history isn't available for this network yet.</div></div>`;
+    const loading = ws.some(w => txLoading.has(w.id)), loaded = ws.filter(w => (txData[w.id] || {}).rows);
+    if (!loaded.length) return `<div class="cttx"><div class="pempty">${loading ? "Loading transfers…" : ws.some(w => (txData[w.id] || {}).error) ? esc(ws.map(w => (txData[w.id] || {}).error).filter(Boolean)[0]) : "Not loaded yet."}</div></div>`;
+    let rows = loaded.flatMap(w => txData[w.id].rows.filter(r => coinTxMatch(r, c.key, t)));
+    const spamN = rows.filter(r => r.spam).length;
+    if (txHideSpam) rows = rows.filter(r => !r.spam);
+    rows.sort((a, b) => b.t - a.t);
+    let inV = 0, outV = 0, inA = 0, outA = 0, anyV = false;
+    for (const r of rows) {
+      if (r.dir === "in") inA += r.amount; else if (r.dir === "out") outA += r.amount;
+      const p = txPrice(r); if (p == null) continue; anyV = true;
+      if (r.dir === "in") inV += r.amount * p; else if (r.dir === "out") outV += r.amount * p;
+    }
+    const lbl = new Map(wallets.map(w => [lower(w.addr), wName(w)]));
+    const n = coinTxShow[ck] || TX_PAGE;
+    const head = `<div class="txhead"><div class="x-chain">Chain</div><div>Action</div><div class="x-from">From</div><div class="x-to">To</div><div class="r">Amount</div><div class="r">Value</div><div class="r x-time">Time</div><div>Tx</div></div>`;
+    const sum = `<div class="ctsum"><span>${rows.length} transfer${rows.length === 1 ? "" : "s"}${loading ? " · updating…" : ""}</span>`
+      + `<span class="num up">In ${fmtAmt(inA)} ${esc(t.sym)}${anyV ? ` · ${fmtMoney(inV)}` : ""}</span>`
+      + `<span class="num down">Out ${fmtAmt(outA)} ${esc(t.sym)}${anyV ? ` · ${fmtMoney(outV)}` : ""}</span>`
+      + (spamN && txHideSpam ? `<span>${spamN} spam hidden</span>` : "") + `</div>`;
+    const body = rows.length
+      ? head + rows.slice(0, n).map(r => txRowHTML(r, lbl)).join("") + (rows.length > n ? `<div class="txmore"><button type="button" class="btn" data-ctmore="${esc(ck)}">Show ${Math.min(TX_PAGE, rows.length - n)} more · ${rows.length - n} left</button></div>` : "")
+      : `<div class="pempty">No ${esc(t.sym)} transfers in the latest history loaded for ${loaded.length === 1 ? "this address" : "these addresses"}.</div>`;
+    return `<div class="cttx">${sum}${body}</div>`;
+  }
+  function rerenderChains() { if (openCoinTx.size && lastChains) renderChains(...lastChains); }
+
   function renderChains(total, loading) {
+    lastChains = [total, loading];
     const box = $("chains");
     if (!wallets.length) { box.innerHTML = emptyState(); return; }
     if (loading) {
@@ -1711,12 +1814,13 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
           <div class="trow th"><div>Coin</div><div class="r t-price">Price / 24h</div><div class="r t-hold">Holdings</div><div class="r">Value</div></div>
           ${c.toks.map(t => {
             const p = px(t.cg), ch = chg(t.cg), inChain = c.value > 0 ? t.value / c.value * 100 : 0;
-            return `<div class="trow">
-              <div class="a-who">${logo(t.cg, t.sym, t.color, "sm")}<div class="t"><b>${esc(assetName(t))}</b><span class="sub">${esc(t.sym)}${t.priced ? ` · ${inChain.toFixed(1)}% of chain` : ""}</span></div></div>
+            const ck = c.key + "|" + t.cg, topen = openCoinTx.has(ck);
+            return `<div class="ctgrp"><button type="button" class="trow" data-ctok="${esc(ck)}" aria-expanded="${topen}" title="Show ${esc(t.sym)} transfers on ${esc(net.name)}">
+              <div class="a-who">${chev}${logo(t.cg, t.sym, t.color, "sm")}<div class="t"><b>${esc(assetName(t))}</b><span class="sub">${esc(t.sym)}${t.priced ? ` · ${inChain.toFixed(1)}% of chain` : ""}</span></div></div>
               <div class="r t-price"><div class="num">${fmtMoney(p)}</div><div class="num sub ${ud(ch)}">${pct(ch)}</div></div>
               <div class="r t-hold"><div class="num">${fmtAmt(t.amount)}</div><div class="sub">${esc(t.sym)}</div></div>
               <div class="r"><div class="num val">${t.priced ? fmtMoney(t.value) : "—"}</div><div class="num sub only-m">${fmtAmt(t.amount)} ${esc(t.sym)}</div></div>
-            </div>`;
+            </button>${topen ? coinTxHTML(c, t, ck) : ""}</div>`;
           }).join("")}
         </div>` : "";
       return `<div class="chgrp">
@@ -2172,16 +2276,16 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     const todo = list.filter(w => txSupported(w) && !txLoading.has(w.id));
     if (!todo.length) return;
     todo.forEach(w => txLoading.add(w.id));
-    renderTx();
+    renderTx(); rerenderChains();
     await Promise.all(todo.map(async w => {
       try { txData[w.id] = await fetchTx(w); }
       catch (e) { txData[w.id] = { ...(txData[w.id] || {}), error: e.message }; }
       txLoading.delete(w.id);
-      renderTx();
+      renderTx(); rerenderChains();
     }));
     await txDexPrices();
     saveTx();
-    renderTx();
+    renderTx(); rerenderChains();
   }
 
   const agoShort = t => {
@@ -2288,7 +2392,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
 
   $("txw").addEventListener("change", e => { txWallet = e.target.value; store.set("lw.txw", txWallet); renderTx(); });
   $("txn").addEventListener("change", e => { txNet = e.target.value; renderTx(); });
-  $("txspam").addEventListener("change", e => { txHideSpam = e.target.checked; store.set("lw.txspam", txHideSpam); renderTx(); });
+  $("txspam").addEventListener("change", e => { txHideSpam = e.target.checked; store.set("lw.txspam", txHideSpam); renderTx(); rerenderChains(); });
   $("txreload").addEventListener("click", () => { txAuto = true; loadTx(); });
   $("txcsv").addEventListener("click", txCSV);
   $("txkeysbtn").addEventListener("click", () => {
@@ -2350,6 +2454,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     busy = false;
     $("refresh").classList.remove("spin");
     render();
+    loadLong(range);
   }
   async function loadOne(w) {
     try {
@@ -2459,6 +2564,26 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
   });
 
   $("chains").addEventListener("click", e => {
+    if (e.target.closest("a")) return; // explorer links inside transfer rows
+    const more = e.target.closest("[data-ctmore]");
+    if (more) { const k = more.dataset.ctmore; coinTxShow[k] = (coinTxShow[k] || TX_PAGE) + TX_PAGE; rerenderChains(); return; }
+    const ct = e.target.closest("[data-ctok]");
+    if (ct) {
+      const k = ct.dataset.ctok;
+      if (openCoinTx.has(k)) openCoinTx.delete(k);
+      else {
+        openCoinTx.add(k);
+        // Fetch history for the addresses holding this coin on this chain, if not done yet
+        const key = k.slice(0, k.indexOf("|")), c = chainList().find(x => x.key === key);
+        const t = c && c.toks.find(x => key + "|" + x.cg === k);
+        const need = t ? wallets.filter(w => t.wallets.has(w.id) && !(txData[w.id] || {}).rows) : [];
+        if (need.length) { txAuto = true; loadTx(need); }
+      }
+      store.set("lw.opencoin", [...openCoinTx]);
+      renderChains(...(lastChains || [0, false]));
+      const again = $("chains").querySelector(`[data-ctok="${CSS.escape(k)}"]`); if (again) again.focus();
+      return;
+    }
     const b = e.target.closest("[data-chain]"); if (!b) return;
     const k = b.dataset.chain;
     if (openChains.has(k)) openChains.delete(k); else openChains.add(k);
@@ -2472,6 +2597,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
   }));
   document.querySelectorAll("[data-range]").forEach(b => b.addEventListener("click", () => {
     range = b.dataset.range; store.set("lw.range", range); render();
+    loadLong(range);
   }));
   document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => {
     view = b.dataset.view; store.set("lw.view", view); render();
@@ -2563,16 +2689,20 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
 
     // Hero line: 7-day history from prices, else what this device has recorded
     let data = pts;
-    let note = "Current holdings at past prices · hourly";
+    let note = "Current holdings at past prices · " + (range === "1y" ? "daily" : "hourly");
     if (!data) {
       const loc = history.map(h => ({ t: h.t, v: h[currency] }));
-      const cut = Date.now() - (range === "24h" ? 1 : 7) * 864e5;
+      const cut = Date.now() - ({ "24h": 1, "7d": 7, "1m": 30, "1y": 365 }[range] || 7) * 864e5;
       data = loc.filter(p => p.t >= cut);
       if (data.length < 2) data = null; else note = "Recorded on this device";
     }
+    if (longBusy && LONG[range]) note = "Loading " + range.toUpperCase() + " price history…";
     const hc = charts.hero.data;
     if (data) {
-      const fmt = range === "24h" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit" };
+      const fmt = range === "24h" ? { hour: "2-digit", minute: "2-digit" }
+        : range === "1y" ? { day: "numeric", month: "short", year: "numeric" }
+        : range === "1m" ? { day: "numeric", month: "short" }
+        : { day: "numeric", month: "short", hour: "2-digit" };
       hc.labels = data.map(p => new Date(p.t).toLocaleString([], fmt));
       hc.datasets[0].data = data.map(p => p.v);
       const up = data[data.length - 1].v >= data[0].v;
@@ -2584,7 +2714,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     $("rangenote").textContent = note;
     const empty = $("heroempty");
     empty.hidden = !!data;
-    empty.textContent = !wallets.length ? "Add a wallet to see your portfolio over time." : busy ? "Loading price history…" : "No price history yet. It fills in after the next refresh.";
+    empty.textContent = !wallets.length ? "Add a wallet to see your portfolio over time." : busy || longBusy ? "Loading price history…" : "No price history yet. It fills in after the next refresh.";
     charts.hero.update();
 
     // Donut: top 6 + other

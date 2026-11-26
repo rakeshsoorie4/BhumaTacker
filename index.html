@@ -233,6 +233,8 @@ body.tvfull-lock { overflow: hidden; }
 .txnote { padding: 8px 16px; font-size: 12px; color: var(--warn); }
 .txnote.err { color: var(--down); }
 .txmore { padding: 8px 16px 12px; display: flex; justify-content: center; }
+.txmore[hidden] { display: none; }
+#assets:not(.show-small) > .agrp.small { display: none; }
 .only-s { display: none; }
 @media (max-width: 900px) {
   .txhead, .txrow { grid-template-columns: 92px minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 1fr) 62px 30px; }
@@ -496,6 +498,14 @@ html:not(.authing) .wrap > *:nth-child(5) { animation-delay: .24s; }
 html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
 
+/* Page tabs: Portfolio | Transactions */
+.ptabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-top: 14px; }
+.ptabs button { border: 0; background: none; padding: 10px 14px; font-size: 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color .15s, border-color .15s; }
+.ptabs button:hover { color: var(--ink); }
+.ptabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: currentColor; }
+html[data-page="tx"] .wrap > :not(.ptabs):not(#txcard):not(footer) { display: none; }
+html:not([data-page="tx"]) #txcard { display: none; }
+
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -521,6 +531,11 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
 </header>
 
 <div class="wrap">
+  <nav class="ptabs" role="tablist" aria-label="Page">
+    <button type="button" role="tab" data-page="portfolio">Portfolio</button>
+    <button type="button" role="tab" data-page="tx">Transactions</button>
+  </nav>
+
   <section class="card hero" aria-live="polite">
     <div class="hhead">
       <div>
@@ -572,6 +587,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     <div id="pane-assets">
       <div class="ahead"><div>Asset</div><div class="r c-price">Price / 24h</div><div class="c-spark">Last 7 days</div><div class="r c-hold">Holdings</div><div class="r">Value</div><div class="r c-alloc">Allocation</div></div>
       <div id="assets"></div>
+      <div class="txmore" id="assetsmore" hidden></div>
     </div>
     <div id="pane-chains" hidden>
       <div class="chhead"><div>Chain</div><div class="c-share">Share</div><div class="r">Coins</div><div class="r">Value</div></div>
@@ -613,6 +629,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     <div class="card panel">
       <div class="ph"><h2>By network</h2><span class="hint">Coins + stablecoins</span></div>
       <div class="cbox" id="netbox"><canvas id="ch-net" aria-label="Value by network"></canvas></div>
+      <div class="txmore" id="netmore" hidden></div>
     </div>
   </section>
 
@@ -814,6 +831,8 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
   let longHist = store.get("lw.lh", {});            // range -> cg id -> {at, p: [[t, usd]...]}
   let longBusy = false;
   const openChains = new Set(store.get("lw.opench", [])); // expanded rows in the Chains view
+  let showSmall = false;                             // Assets view: show coins worth under $1
+  let showSmallNets = false;                         // By network chart: show networks worth under $1
   const openAssets = new Set(store.get("lw.openas", [])); // expanded rows in the Assets view (shows holding addresses)
   const openCoinTx = new Set(store.get("lw.opencoin", [])); // "chain|coin" rows in the Chains view showing their transfers
   const coinTxShow = {}; let lastChains = null;
@@ -1425,10 +1444,11 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     const m = {};
     for (const w of wallets) for (const h of holdings(w)) {
       if (!(h.amount > 0)) continue;
-      const a = m[h.cg] || (m[h.cg] = { cg: h.cg, sym: h.sym, color: h.color, amount: 0, value: 0, nets: new Set(), priced: false, src: {} });
+      const a = m[h.cg] || (m[h.cg] = { cg: h.cg, sym: h.sym, color: h.color, amount: 0, value: 0, usd: 0, nets: new Set(), priced: false, src: {} });
       a.amount += h.amount; a.nets.add(h.chain);
       const p = px(h.cg), v = p != null ? h.amount * p : 0;
       if (p != null) { a.value += v; a.priced = true; }
+      const pu = prices[h.cg] && prices[h.cg].usd; if (pu != null) a.usd += h.amount * pu; // for the "under $1" fold, whatever the display currency
       // Which address holds it, per wallet + network (a token can sit on several chains in one EVM wallet)
       const sk = w.id + "|" + h.chain;
       if (h.dx && h.addr && !a.dx) a.dx = { chain: h.chain, addr: h.addr }; // where to find a chart for DEX-only tokens
@@ -1774,7 +1794,8 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
   }
 
   function renderAssets(assets, total, loading) {
-    const host = $("assets");
+    const host = $("assets"), more = $("assetsmore");
+    more.hidden = true;
     if (!wallets.length) { host.innerHTML = emptyState(); return; }
     if (loading) {
       host.innerHTML = Array.from({ length: 3 }, () => `<div class="arow"><div class="a-who"><span class="skeleton circ"></span><span class="skeleton" style="width:110px"></span></div><div class="r c-price"><span class="skeleton"></span></div><div class="c-spark"><span class="skeleton" style="width:100%"></span></div><div class="r c-hold"><span class="skeleton"></span></div><div class="r"><span class="skeleton"></span></div><div class="r c-alloc"><span class="skeleton" style="width:60px"></span></div></div>`).join("");
@@ -1803,10 +1824,23 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
         if (hl.$html !== list) { hl.innerHTML = list; hl.$html = list; }
         mountTv(a, panel.querySelector(".tvslot"));
       } else if (panel) panel.remove();
+      g.classList.toggle("small", a.priced && a.usd < 1 && !openAssets.has(a.cg)); // folded behind "Show more"
       if (host.children[i] !== g) host.insertBefore(g, host.children[i] || null); // only moves rows that changed place
     });
     old.forEach(g => g.remove());
+    // Coins worth under $1 stay folded until "Show more" is clicked
+    const nSmall = host.querySelectorAll(":scope > .agrp.small").length;
+    host.classList.toggle("show-small", showSmall);
+    more.hidden = !nSmall;
+    if (nSmall) more.innerHTML = `<button type="button" class="btn" data-smalltoggle>${showSmall ? "Show less" : `Show ${nSmall} more · under $1`}</button>`;
   }
+  document.addEventListener("click", e => {
+    if (!e.target.closest("[data-smalltoggle]")) return;
+    showSmall = !showSmall;
+    const host = $("assets"), n = host.querySelectorAll(":scope > .agrp.small").length;
+    host.classList.toggle("show-small", showSmall);
+    e.target.closest("[data-smalltoggle]").textContent = showSmall ? "Show less" : `Show ${n} more · under $1`;
+  });
 
   // ---------- Coin chart (Assets view → open a coin) ----------
   // Our own chart (prochart.js: Lightweight Charts + indicators, drawing tools, favourites and shortcuts).
@@ -2710,6 +2744,20 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
   document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => {
     view = b.dataset.view; store.set("lw.view", view); render();
   }));
+  // Page tabs: Portfolio | Transactions (URL #transactions opens the Transactions tab directly)
+  function setPage(p, fromHash) {
+    if (p !== "tx") p = "portfolio";
+    const was = document.documentElement.dataset.page;
+    document.documentElement.dataset.page = p;
+    document.querySelectorAll(".ptabs [data-page]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.page === p)));
+    store.set("lw.page", p);
+    if (!fromHash) window.history.replaceState(null, "", p === "tx" ? "#transactions" : location.pathname + location.search);
+    if (was && was !== p) { window.scrollTo(0, 0); if (p === "portfolio") render(); } // charts re-measure after being hidden
+  }
+  document.querySelectorAll(".ptabs [data-page]").forEach(b => b.addEventListener("click", () => setPage(b.dataset.page)));
+  addEventListener("hashchange", () => setPage(location.hash === "#transactions" ? "tx" : "portfolio", true));
+  setPage(location.hash === "#transactions" ? "tx" : location.hash ? "portfolio" : store.get("lw.page", "portfolio"));
+
   document.querySelectorAll("[data-mv]").forEach(b => b.addEventListener("click", () => {
     mvRange = b.dataset.mv; store.set("lw.mvr", mvRange); if (mvLast) renderMovers(...mvLast);
   }));
@@ -2837,15 +2885,35 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     $("dleg").innerHTML = total > 0 ? top.map(t => `<div><i class="dot" style="background:${t.color}"></i><b>${esc(t.name)}</b><span class="dpc">${(t.v / total * 100).toFixed(1)}%</span></div>`).join("")
       : '<div class="pempty" style="display:block">No priced holdings yet.</div>';
 
-    // By network
+    renderNetChart();
+  }
+
+  // By network chart; networks worth under $1 stay folded until "Show more" is clicked
+  function renderNetChart() {
+    if (!charts || !charts.net) return;
     const byNet = {};
-    for (const w of wallets) for (const h of holdings(w)) { const p = px(h.cg); if (p == null || !(h.amount > 0)) continue; const c = CHAINS[h.chain]; byNet[c.name] = byNet[c.name] || { v: 0, color: c.color }; byNet[c.name].v += h.amount * p; }
-    const nets = Object.entries(byNet).sort((a, b) => b[1].v - a[1].v);
+    for (const w of wallets) for (const h of holdings(w)) {
+      const p = px(h.cg); if (p == null || !(h.amount > 0)) continue;
+      const c = CHAINS[h.chain], pu = prices[h.cg] && prices[h.cg].usd;
+      const e = byNet[c.name] || (byNet[c.name] = { v: 0, usd: 0, color: c.color });
+      e.v += h.amount * p; if (pu != null) e.usd += h.amount * pu;
+    }
+    const all = Object.entries(byNet).sort((a, b) => b[1].v - a[1].v);
+    const nSmall = all.filter(e => e[1].usd < 1).length;
+    const nets = showSmallNets ? all : all.filter(e => e[1].usd >= 1);
+    const more = $("netmore");
+    more.hidden = !nSmall;
+    if (nSmall) more.innerHTML = `<button type="button" class="btn" data-netsmall>${showSmallNets ? "Show less" : `Show ${nSmall} more · under $1`}</button>`;
     const n = charts.net.data;
     n.labels = nets.map(e => e[0]); n.datasets[0].data = nets.map(e => e[1].v); n.datasets[0].backgroundColor = nets.map(e => e[1].color);
     $("netbox").style.height = Math.max(170, nets.length * 28 + 40) + "px";
     charts.net.update("none");
   }
+  document.addEventListener("click", e => {
+    if (!e.target.closest("[data-netsmall]")) return;
+    showSmallNets = !showSmallNets;
+    renderNetChart();
+  });
 
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!theme && makeCharts()) render(); }); } catch {}
 

@@ -19,7 +19,7 @@ Ledgerwatch uses Firebase for Google sign-in and to save each user's wallet addr
 3. Open the **Rules** tab, replace everything with the contents of `firestore.rules`, and click **Publish**.
 
 ## 4. Publish
-Commit `index.html`, `login.html`, `auth.js`, `firebase-config.js` and `firestore.rules` to the repo. GitHub Pages updates in a minute or two.
+Commit `index.html`, `prochart.js`, `login.html`, `auth.js`, `firebase-config.js` and `firestore.rules` to the repo. GitHub Pages updates in a minute or two.
 Open the site: signed-out visitors go to `login.html`; after signing in, wallets are saved under
 `users/{your uid}/wallets` and you can see them in the Firestore console.
 

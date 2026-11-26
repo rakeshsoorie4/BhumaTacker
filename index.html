@@ -182,6 +182,21 @@ button.arow { width: 100%; border: 0; background: none; text-align: left; }
 .hrow .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
 .hrow .h-amt .sub { font-size: 11.5px; }
 @media (max-width: 760px) { .only-m { display: block; } }
+/* Assets view: TradingView chart (with drawing tools) for the opened coin */
+.tvwrap { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.tvbox { position: relative; display: block; width: 100%; height: 560px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.tvbox .cmsg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; text-align: center; padding: 0 16px; }
+@media (max-width: 760px) { .tvbox { height: 440px; } }
+.tvbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.tvwrap:has(.pc) .tvbar { display: none; }  /* our chart has its own full-screen button */
+.tvfs { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.tvfs:hover { color: var(--ink); border-color: var(--accent); }
+.tvfs svg { width: 15px; height: 15px; }
+.tvwrap.is-fs { display: flex; flex-direction: column; background: var(--bg, var(--surface)); padding: 10px; border: 0; }
+.tvwrap.tvfull { position: fixed; inset: 0; z-index: 9999; }
+.tvwrap.is-fs .tvslot { flex: 1; min-height: 0; }
+.tvwrap.is-fs .tvbox { height: 100%; }
+body.tvfull-lock { overflow: hidden; }
 
 /* Transactions: one block per address, Nansen-style transfer table inside */
 .txtools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -246,7 +261,7 @@ button.arow { width: 100%; border: 0; background: none; text-align: left; }
 .tile { position: absolute; border: 2px solid var(--surface); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; text-align: center; color: var(--ink); padding: 2px; line-height: 1.15; font-size: var(--fs); }
 .tile b { font-family: var(--f-mono); font-weight: 600; white-space: nowrap; }
 .tile span { font-size: .72em; white-space: nowrap; }
-.tile .pc { opacity: .8; font-size: .6em; }
+.tile .tpc { opacity: .8; font-size: .6em; }
 .mvlist { padding: 2px 0; }
 .mvrow { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 2fr) minmax(0, 1fr); gap: 14px; align-items: center; padding: 9px 16px; }
 .mvrow + .mvrow { border-top: 1px solid var(--line); }
@@ -302,7 +317,7 @@ button.arow { width: 100%; border: 0; background: none; text-align: left; }
 .dcenter span { font-size: 11px; color: var(--muted); }
 .dleg { display: flex; flex-direction: column; gap: 8px; font-size: 13px; min-width: 0; }
 .dleg div { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
-.dleg .pc { color: var(--muted); font-family: var(--f-mono); font-size: 12px; }
+.dleg .dpc { color: var(--muted); font-family: var(--f-mono); font-size: 12px; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; }
 
 /* Add wallet dialog */
@@ -630,6 +645,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
 <div class="boot" aria-live="polite"><div><i></i><span>Loading your portfolio…</span></div></div>
 <script>window.lwAuth = new Promise(r => { window.__lwAuthReady = r; });</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="prochart.js"></script>
 <script>
 (() => {
   // ---------- Networks ----------
@@ -1415,6 +1431,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
       if (p != null) { a.value += v; a.priced = true; }
       // Which address holds it, per wallet + network (a token can sit on several chains in one EVM wallet)
       const sk = w.id + "|" + h.chain;
+      if (h.dx && h.addr && !a.dx) a.dx = { chain: h.chain, addr: h.addr }; // where to find a chart for DEX-only tokens
       const s = a.src[sk] || (a.src[sk] = { w, chain: h.chain, amount: 0, value: 0 });
       s.amount += h.amount; s.value += v;
     }
@@ -1705,7 +1722,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
       const label = `${assetName(t.a)} (${t.a.sym}) · ${sgn$(t.d)} · ${pct(t.p)} · ${R}`;
       const pctPos = v => `${(v * 100).toFixed(3)}%`;
       return `<div class="tile" style="left:${pctPos(t.x / W)};top:${pctPos(t.y / H)};width:${pctPos(t.w / W)};height:${pctPos(t.h / H)};background:${bg};--fs:${fs.toFixed(1)}px" title="${esc(label)}" role="img" aria-label="${esc(label)}">`
-        + (lvl ? `<b>${esc(t.a.sym)}</b>` : "") + (lvl > 1 ? `<span class="num">${sgnShort(t.d)}</span>` : "") + (lvl > 2 ? `<span class="num pc">${pct(t.p)}</span>` : "") + "</div>";
+        + (lvl ? `<b>${esc(t.a.sym)}</b>` : "") + (lvl > 1 ? `<span class="num">${sgnShort(t.d)}</span>` : "") + (lvl > 2 ? `<span class="num tpc">${pct(t.p)}</span>` : "") + "</div>";
     }).join("");
   }
 
@@ -1713,49 +1730,140 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     return `<div class="empty"><b>No wallets yet</b><span>Paste any public address to start tracking. Balances load straight from the blockchain.</span><button type="button" class="btn primary" data-open-add>${icons.plus}Add your first wallet</button></div>`;
   }
 
-  function renderAssets(assets, total, loading) {
-    if (!wallets.length) { $("assets").innerHTML = emptyState(); return; }
-    if (loading) {
-      $("assets").innerHTML = Array.from({ length: 3 }, () => `<div class="arow"><div class="a-who"><span class="skeleton circ"></span><span class="skeleton" style="width:110px"></span></div><div class="r c-price"><span class="skeleton"></span></div><div class="c-spark"><span class="skeleton" style="width:100%"></span></div><div class="r c-hold"><span class="skeleton"></span></div><div class="r"><span class="skeleton"></span></div><div class="r c-alloc"><span class="skeleton" style="width:60px"></span></div></div>`).join("");
-      return;
-    }
-    if (!assets.length) { $("assets").innerHTML = `<div class="empty"><b>Nothing here yet</b><span>Your wallets don't hold any supported coins right now.</span></div>`; return; }
-    const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
-    $("assets").innerHTML = assets.map(a => {
-      const p = px(a.cg), ch = chg(a.cg), mk = markets[a.cg];
-      const c7 = mk && mk.c7 != null ? mk.c7 : (mk && mk.spark.length ? (mk.spark[mk.spark.length - 1] / mk.spark[0] - 1) * 100 : null);
-      const share = total > 0 ? a.value / total * 100 : 0;
-      const where = a.nets.size > 1 ? `${a.nets.size} networks` : CHAINS[[...a.nets][0]].name;
-      const open = openAssets.has(a.cg), id = "ah-" + a.cg.replace(/[^a-z0-9_-]/gi, "_");
-      const nAddr = new Set(a.src.map(s => s.w.id)).size;
-      const holders = open ? `<div class="chtoks" id="${id}">
-          <div class="hrow th"><div>Held by</div><div class="h-net">Network</div><div class="r h-amt">Amount</div><div class="r h-share">Share</div><div class="r">Value</div><div></div></div>
-          ${a.src.map(s => {
-            const w = s.w, net = CHAINS[s.chain], multi = w.chain === "evmall";
-            const inCoin = a.amount > 0 ? s.amount / a.amount * 100 : 0;
-            const url = (net && net.explorer ? net : meta(w)).explorer(w.addr);
-            return `<div class="hrow">
-              <div class="a-who">${chainLogo(s.chain, "sm")}<div class="t"><b>${esc(w.label || (multi ? "EVM wallet" : net.name + " wallet"))}</b><span class="sub mono" title="${esc(w.addr)}">${esc(short(w.addr))}</span></div></div>
-              <div class="h-net sub">${esc(net ? net.name : "")}</div>
-              <div class="r h-amt num">${fmtAmt(s.amount)} <span class="sub">${esc(a.sym)}</span></div>
-              <div class="h-share share"><div class="mini"><span style="width:${inCoin.toFixed(2)}%;background:${a.color}"></span></div><span class="num sub">${sharePct(inCoin)}</span></div>
-              <div class="r"><div class="num val">${a.priced ? fmtMoney(s.value) : "—"}</div><div class="num sub only-m">${fmtAmt(s.amount)} ${esc(a.sym)}</div></div>
-              <div class="acts">
-                <button type="button" class="icon" data-act="copy" data-addr="${esc(w.addr)}" title="Copy address" aria-label="Copy address">${icons.copy}</button>
-                <a class="icon" href="${esc(url)}" target="_blank" rel="noopener" title="Open in block explorer" aria-label="Open in block explorer">${icons.ext}</a>
-              </div>
-            </div>`;
-          }).join("")}
-        </div>` : "";
-      return `<div class="agrp"><button type="button" class="arow" data-asset="${esc(a.cg)}" aria-expanded="${open}" aria-controls="${id}">
-        <div class="a-who">${chev}${logo(a.cg, a.sym, a.color)}<div class="t"><b>${esc(assetName(a))}</b><span class="sub">${esc(a.sym)} · ${esc(where)} · ${nAddr} address${nAddr === 1 ? "" : "es"}</span></div></div>
+  // ---------- Assets view ----------
+  // Rows are updated in place, keyed by coin, so an open TradingView chart (and whatever was drawn on it)
+  // survives the regular refreshes instead of being rebuilt.
+  const CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  const panelId = cg => "ah-" + String(cg).replace(/[^a-z0-9_-]/gi, "_");
+
+  function assetRowHTML(a, total) {
+    const p = px(a.cg), ch = chg(a.cg), mk = markets[a.cg];
+    const c7 = mk && mk.c7 != null ? mk.c7 : (mk && mk.spark && mk.spark.length ? (mk.spark[mk.spark.length - 1] / mk.spark[0] - 1) * 100 : null);
+    const share = total > 0 ? a.value / total * 100 : 0;
+    const where = a.nets.size > 1 ? `${a.nets.size} networks` : CHAINS[[...a.nets][0]].name;
+    const open = openAssets.has(a.cg);
+    const nAddr = new Set(a.src.map(s => s.w.id)).size;
+    return `<button type="button" class="arow" data-asset="${esc(a.cg)}" aria-expanded="${open}" aria-controls="${panelId(a.cg)}">
+        <div class="a-who">${CHEV}${logo(a.cg, a.sym, a.color)}<div class="t"><b>${esc(assetName(a))}</b><span class="sub">${esc(a.sym)} · ${esc(where)} · ${nAddr} address${nAddr === 1 ? "" : "es"}</span></div></div>
         <div class="r c-price"><div class="num">${fmtMoney(p)}</div><div class="num sub ${ud(ch)}">${pct(ch)}</div></div>
         <div class="c-spark" title="7d ${pct(c7)}">${sparkSVG(mk && mk.spark, (c7 ?? 0) >= 0)}</div>
         <div class="r c-hold"><div class="num">${fmtAmt(a.amount)}</div><div class="sub">${esc(a.sym)}</div></div>
         <div class="r"><div class="num val">${a.priced ? fmtMoney(a.value) : "—"}</div><div class="num sub ${ud(ch)} only-m">${pct(ch)}</div></div>
         <div class="c-alloc alloc"><div class="mini"><span style="width:${share.toFixed(2)}%;background:${a.color}"></span></div><span class="num sub">${share.toFixed(1)}%</span></div>
-      </button>${holders}</div>`;
-    }).join("");
+      </button>`;
+  }
+
+  function holdersHTML(a) {
+    return `<div class="hrow th"><div>Held by</div><div class="h-net">Network</div><div class="r h-amt">Amount</div><div class="r h-share">Share</div><div class="r">Value</div><div></div></div>
+      ${a.src.map(s => {
+        const w = s.w, net = CHAINS[s.chain], multi = w.chain === "evmall";
+        const inCoin = a.amount > 0 ? s.amount / a.amount * 100 : 0;
+        const url = (net && net.explorer ? net : meta(w)).explorer(w.addr);
+        return `<div class="hrow">
+          <div class="a-who">${chainLogo(s.chain, "sm")}<div class="t"><b>${esc(w.label || (multi ? "EVM wallet" : net.name + " wallet"))}</b><span class="sub mono" title="${esc(w.addr)}">${esc(short(w.addr))}</span></div></div>
+          <div class="h-net sub">${esc(net ? net.name : "")}</div>
+          <div class="r h-amt num">${fmtAmt(s.amount)} <span class="sub">${esc(a.sym)}</span></div>
+          <div class="h-share share"><div class="mini"><span style="width:${inCoin.toFixed(2)}%;background:${a.color}"></span></div><span class="num sub">${sharePct(inCoin)}</span></div>
+          <div class="r"><div class="num val">${a.priced ? fmtMoney(s.value) : "—"}</div><div class="num sub only-m">${fmtAmt(s.amount)} ${esc(a.sym)}</div></div>
+          <div class="acts">
+            <button type="button" class="icon" data-act="copy" data-addr="${esc(w.addr)}" title="Copy address" aria-label="Copy address">${icons.copy}</button>
+            <a class="icon" href="${esc(url)}" target="_blank" rel="noopener" title="Open in block explorer" aria-label="Open in block explorer">${icons.ext}</a>
+          </div>
+        </div>`;
+      }).join("")}`;
+  }
+
+  function renderAssets(assets, total, loading) {
+    const host = $("assets");
+    if (!wallets.length) { host.innerHTML = emptyState(); return; }
+    if (loading) {
+      host.innerHTML = Array.from({ length: 3 }, () => `<div class="arow"><div class="a-who"><span class="skeleton circ"></span><span class="skeleton" style="width:110px"></span></div><div class="r c-price"><span class="skeleton"></span></div><div class="c-spark"><span class="skeleton" style="width:100%"></span></div><div class="r c-hold"><span class="skeleton"></span></div><div class="r"><span class="skeleton"></span></div><div class="r c-alloc"><span class="skeleton" style="width:60px"></span></div></div>`).join("");
+      return;
+    }
+    if (!assets.length) { host.innerHTML = `<div class="empty"><b>Nothing here yet</b><span>Your wallets don't hold any supported coins right now.</span></div>`; return; }
+    if ([...host.children].some(c => !c.dataset.g)) host.innerHTML = ""; // was showing a skeleton or empty state
+    const old = new Map([...host.children].map(g => [g.dataset.g, g]));
+    assets.forEach((a, i) => {
+      let g = old.get(a.cg); old.delete(a.cg);
+      if (!g) { g = document.createElement("div"); g.className = "agrp"; g.dataset.g = a.cg; }
+      const row = assetRowHTML(a, total);
+      if (g.$row !== row) {
+        const b = g.querySelector(":scope > .arow");
+        if (b) b.outerHTML = row; else g.insertAdjacentHTML("afterbegin", row);
+        g.$row = row;
+      }
+      let panel = g.querySelector(":scope > .chtoks");
+      if (openAssets.has(a.cg)) {
+        if (!panel) {
+          panel = document.createElement("div"); panel.className = "chtoks"; panel.id = panelId(a.cg);
+          panel.innerHTML = `<div class="tvwrap"><div class="tvbar"><button type="button" class="tvfs" data-tvfs title="Full screen (Esc to exit)">${FS_ICON.open}<span>Full screen</span></button></div><div class="tvslot"></div></div><div class="hlist"></div>`;
+          g.appendChild(panel);
+        }
+        const hl = panel.querySelector(".hlist"), list = holdersHTML(a);
+        if (hl.$html !== list) { hl.innerHTML = list; hl.$html = list; }
+        mountTv(a, panel.querySelector(".tvslot"));
+      } else if (panel) panel.remove();
+      if (host.children[i] !== g) host.insertBefore(g, host.children[i] || null); // only moves rows that changed place
+    });
+    old.forEach(g => g.remove());
+  }
+
+  // ---------- Coin chart (Assets view → open a coin) ----------
+  // Our own chart (prochart.js: Lightweight Charts + indicators, drawing tools, favourites and shortcuts).
+  // DEX-only tokens use DexScreener's embed, since Binance/CryptoCompare have no candles for them.
+
+  // Full-screen toggle for the chart. Uses the browser's Fullscreen API (Esc exits); where that's missing
+  // (iPhone Safari), falls back to a fixed overlay covering the window.
+  const FS_ICON = {
+    open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>',
+  };
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || document.querySelector(".tvwrap.tvfull");
+  function syncFsButtons() {
+    const cur = fsEl();
+    document.querySelectorAll(".tvwrap").forEach(w => {
+      const on = w === cur;
+      w.classList.toggle("is-fs", on);
+      w.querySelectorAll("[data-tvfs]").forEach(b => { b.innerHTML = (on ? FS_ICON.close : FS_ICON.open) + `<span>${on ? "Exit full screen" : "Full screen"}</span>`; b.title = on ? "Exit full screen" : "Full screen"; });
+    });
+    document.body.classList.toggle("tvfull-lock", !!document.querySelector(".tvwrap.tvfull"));
+  }
+  function toggleTvFull(wrap) {
+    const cur = fsEl();
+    if (cur) {
+      if (cur.classList.contains("tvfull")) cur.classList.remove("tvfull");
+      else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      syncFsButtons(); return;
+    }
+    const req = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+    if (req) Promise.resolve(req.call(wrap)).catch(() => { wrap.classList.add("tvfull"); syncFsButtons(); });
+    else wrap.classList.add("tvfull");
+    syncFsButtons();
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-tvfs]"); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    toggleTvFull(b.closest(".tvwrap"));
+  });
+  document.addEventListener("fullscreenchange", syncFsButtons);
+  document.addEventListener("webkitfullscreenchange", syncFsButtons);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && document.querySelector(".tvwrap.tvfull")) { document.querySelector(".tvwrap.tvfull").classList.remove("tvfull"); syncFsButtons(); }
+  });
+
+  function mountTv(a, wrap) {
+    const theme = isDark() ? "dark" : "light";
+    if (wrap.dataset.theme === theme) return;      // already showing; leave it (and its drawings) alone
+    wrap.dataset.theme = theme;
+    if (a.dx && DISCOVER[a.dx.chain]) {
+      const src = `https://dexscreener.com/${DISCOVER[a.dx.chain][1]}/${encodeURIComponent(a.dx.addr)}?embed=1&loadChartSettings=0&info=0&trades=0&tabs=0&chartLeftToolbar=1&chartTheme=${theme}&theme=${theme}&chartStyle=1&chartType=usd&interval=60`;
+      wrap.innerHTML = `<iframe class="tvbox" src="${esc(src)}" title="${esc(a.sym)} chart" allow="clipboard-write" loading="lazy"></iframe>`;
+      return;
+    }
+    if (wrap.$pc && !wrap.$pc.dead) { wrap.$pc.setTheme(theme === "dark"); return; } // keep it (and its drawings); just recolour
+    if (!window.ProChart) { wrap.innerHTML = `<div class="tvbox"><div class="cmsg">The chart script (prochart.js) didn't load.</div></div>`; delete wrap.dataset.theme; return; }
+    wrap.innerHTML = `<div class="tvbox"></div>`;
+    wrap.$pc = ProChart.mount(wrap.firstChild, { sym: a.sym, name: a.name || a.sym, dark: theme === "dark" });
   }
 
   // Transfers of one coin on one chain, across every tracked wallet that holds it there
@@ -2726,7 +2834,7 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
     d.datasets[0].backgroundColor = top.map(t => t.color); d.datasets[0].borderColor = css("--surface");
     charts.donut.update("none");
     $("dcenter").innerHTML = total > 0 ? `<div><b>${priced.length}</b><span>asset${priced.length === 1 ? "" : "s"}</span></div>` : "";
-    $("dleg").innerHTML = total > 0 ? top.map(t => `<div><i class="dot" style="background:${t.color}"></i><b>${esc(t.name)}</b><span class="pc">${(t.v / total * 100).toFixed(1)}%</span></div>`).join("")
+    $("dleg").innerHTML = total > 0 ? top.map(t => `<div><i class="dot" style="background:${t.color}"></i><b>${esc(t.name)}</b><span class="dpc">${(t.v / total * 100).toFixed(1)}%</span></div>`).join("")
       : '<div class="pempty" style="display:block">No priced holdings yet.</div>';
 
     // By network

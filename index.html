@@ -505,6 +505,31 @@ html:not(.authing) .wrap > *:nth-child(6) { animation-delay: .3s; }
 .ptabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: currentColor; }
 html[data-page="tx"] .wrap > :not(.ptabs):not(#txcard):not(footer) { display: none; }
 html:not([data-page="tx"]) #txcard { display: none; }
+html[data-page="charts"] .wrap > :not(.ptabs):not(#chartpage):not(footer) { display: none; }
+html:not([data-page="charts"]) #chartpage { display: none; }
+
+/* Charts tab: search any coin, then its full chart */
+#chartpage { overflow: visible; }
+.cphead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 16px 4px; }
+.cpcur { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cpcur b { font-size: 17px; }
+.cpcur .sub { color: var(--muted); font-size: 13px; }
+.cpsearch { position: relative; flex: 1 1 280px; max-width: 380px; }
+.cpsearch input { width: 100%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 9px 12px 9px 34px; font: inherit; font-size: 14px; }
+.cpsearch input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.cpsearch > svg { position: absolute; left: 11px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.cplist { position: absolute; z-index: 50; top: calc(100% + 6px); left: 0; right: 0; max-height: 360px; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 40px #0000004d; padding: 4px; }
+.cplist button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; color: var(--ink); text-align: left; padding: 8px 10px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13.5px; }
+.cplist button:hover, .cplist button.on { background: var(--surface-2); }
+.cplist button .sub { color: var(--muted); font-size: 12px; margin-left: auto; white-space: nowrap; }
+.cplist .cpnote { padding: 10px; color: var(--muted); font-size: 13px; }
+.cplist .cpsec { padding: 8px 10px 4px; color: var(--faint); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.cpchips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 16px 4px; }
+.cpchips button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 4px 10px 4px 5px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.cpchips button:hover { color: var(--ink); border-color: var(--accent); }
+.cpchips button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: var(--accent-soft); }
+.cpchips .coin.sm { width: 18px; height: 18px; font-size: 7px; box-shadow: none; }
+#chartpage .tvwrap { border-bottom: 0; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
@@ -534,6 +559,7 @@ html:not([data-page="tx"]) #txcard { display: none; }
   <nav class="ptabs" role="tablist" aria-label="Page">
     <button type="button" role="tab" data-page="portfolio">Portfolio</button>
     <button type="button" role="tab" data-page="tx">Transactions</button>
+    <button type="button" role="tab" data-page="charts">Charts</button>
   </nav>
 
   <section class="card hero" aria-live="polite">
@@ -619,6 +645,19 @@ html:not([data-page="tx"]) #txcard { display: none; }
     </div>
     <div id="txlist"></div>
     <div class="mfoot"><span>Latest ~50 transfers per address and network · Value uses today's price · From public block explorers</span><span id="txat"></span></div>
+  </section>
+
+  <section class="card hold" id="chartpage" aria-label="Coin charts">
+    <div class="cphead">
+      <div class="cpcur" id="cpcur"></div>
+      <div class="cpsearch">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="cpq" type="search" autocomplete="off" spellcheck="false" placeholder="Search any coin: BTC, Solana, PEPE…" role="combobox" aria-expanded="false" aria-controls="cplist" aria-label="Search coins">
+        <div class="cplist" id="cplist" role="listbox" hidden></div>
+      </div>
+    </div>
+    <div class="cpchips" id="cpchips" aria-label="Quick picks"></div>
+    <div class="tvwrap"><div class="tvbar"><button type="button" class="tvfs" data-tvfs title="Full screen (Esc to exit)"><span>Full screen</span></button></div><div class="tvslot" id="cpslot"></div></div>
   </section>
 
   <section class="charts" aria-label="Breakdown">
@@ -1529,6 +1568,7 @@ html:not([data-page="tx"]) #txcard { display: none; }
     document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
     $("theme").innerHTML = isDark() ? icons.sun : icons.moon;
     renderLive();
+    if (document.documentElement.dataset.page === "charts") { cpHeader(); cpChips(); } // holdings/prices may have changed
 
     const assets = assetList();
     let total = 0, prevTotal = 0, priced = 0;
@@ -1899,6 +1939,105 @@ html:not([data-page="tx"]) #txcard { display: none; }
     wrap.innerHTML = `<div class="tvbox"></div>`;
     wrap.$pc = ProChart.mount(wrap.firstChild, { sym: a.sym, name: a.name || a.sym, dark: theme === "dark" });
   }
+
+  // ---------- Charts tab: pick any coin and see its chart ----------
+  // Quick picks = your biggest holdings + the majors; search covers your holdings and all of CoinGecko.
+  const CP_POPULAR = [
+    { cg: "bitcoin", sym: "BTC", name: "Bitcoin" }, { cg: "ethereum", sym: "ETH", name: "Ethereum" },
+    { cg: "solana", sym: "SOL", name: "Solana" }, { cg: "binancecoin", sym: "BNB", name: "BNB" },
+    { cg: "ripple", sym: "XRP", name: "XRP" }, { cg: "dogecoin", sym: "DOGE", name: "Dogecoin" },
+    { cg: "cardano", sym: "ADA", name: "Cardano" }, { cg: "chainlink", sym: "LINK", name: "Chainlink" },
+  ];
+  const CP_STABLE = /^(USDT|USDC|DAI|FDUSD|TUSD|USDE|PYUSD|BUSD|USDS|USD1)$/;
+  let cpCoin = store.get("lw.cp.coin", CP_POPULAR[0]), cpSearchSeq = 0, cpTimer = 0, cpHits = [], cpIdx = -1;
+  const cpHue = s => `hsl(${[...String(s)].reduce((h, c) => h * 31 + c.charCodeAt(0) | 0, 7) % 360} 45% 45%)`;
+  const cpIcon = (c, cls = "sm") => c.thumb && !(markets[c.cg] && markets[c.cg].image)
+    ? `<span class="coin ${cls}" style="--cc:${c.color || cpHue(c.sym)}">${esc(String(c.sym).slice(0, 4))}<img src="${esc(c.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"></span>`
+    : logo(c.cg || "", c.sym, c.color || cpHue(c.sym), cls);
+  const cpName = c => (markets[c.cg] && markets[c.cg].name) || c.name || c.sym;
+  const cpHeld = () => assetList().filter(a => !CP_STABLE.test(String(a.sym).toUpperCase()));
+
+  function cpChips() {
+    const seen = new Set(), list = [];
+    for (const c of [...cpHeld().slice(0, 6), ...CP_POPULAR]) {
+      const k = String(c.sym).toUpperCase(); if (seen.has(k)) continue; seen.add(k); list.push(c);
+      if (list.length >= 12) break;
+    }
+    const cur = String(cpCoin.sym).toUpperCase();
+    const html = list.map((c, i) => `<button type="button" data-cpi="${i}" aria-pressed="${String(c.sym).toUpperCase() === cur}" title="${esc(cpName(c))}">${cpIcon(c)}${esc(c.sym)}</button>`).join("");
+    const box = $("cpchips");
+    if (box.$html !== html) { box.innerHTML = html; box.$html = html; box.$list = list; }
+  }
+  function cpHeader() {
+    const c = cpCoin, p = c.cg ? px(c.cg) : null, ch = c.cg ? chg(c.cg) : null;
+    const held = cpHeld().find(a => a.cg === c.cg);
+    $("cpcur").innerHTML = `${cpIcon(c, "")}<div class="t"><b>${esc(cpName(c))}</b> <span class="sub">${esc(c.sym)}${p != null && p ? " · " + fmtMoney(p) : ""}${ch != null ? ` · <span style="color:var(--${ch >= 0 ? "up" : "down"})">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}${held ? " · you hold " + fmtMoney(held.value) : ""}</span></div>`;
+  }
+  function cpMount(force) {
+    const slot = $("cpslot");
+    if (force) { if (slot.$pc && !slot.$pc.dead) try { slot.$pc.destroy(); } catch {} slot.$pc = null; slot.innerHTML = ""; delete slot.dataset.theme; }
+    const held = cpHeld().find(a => a.cg === cpCoin.cg);
+    mountTv({ sym: cpCoin.sym, name: cpName(cpCoin), dx: held && held.dx }, slot);
+  }
+  function cpPick(c) {
+    cpCoin = { cg: c.cg || "", sym: String(c.sym).toUpperCase(), name: c.name || cpName(c), thumb: c.thumb || null };
+    store.set("lw.cp.coin", cpCoin);
+    $("cpq").value = ""; cpClose();
+    cpHeader(); cpChips(); cpMount(true);
+  }
+  function showChartPage() {
+    cpHeader(); cpChips(); cpMount(false); syncFsButtons();
+  }
+
+  // Search: your holdings first (instant), then CoinGecko's coin search
+  function cpClose() { $("cplist").hidden = true; $("cpq").setAttribute("aria-expanded", "false"); cpIdx = -1; }
+  function cpRenderList(local, remote, pending) {
+    cpHits = [...local, ...remote];
+    const row = (c, i) => `<button type="button" role="option" data-cph="${i}">${cpIcon(c)}<b>${esc(c.sym)}</b><span>${esc(cpName(c))}</span><span class="sub">${c.rank ? "#" + c.rank : c.value != null ? fmtMoney(c.value) : ""}</span></button>`;
+    let h = "";
+    if (local.length) h += `<div class="cpsec">Your holdings</div>` + local.map((c, i) => row(c, i)).join("");
+    if (remote.length) h += `<div class="cpsec">All coins</div>` + remote.map((c, i) => row(c, local.length + i)).join("");
+    if (pending) h += `<div class="cpnote">Searching…</div>`;
+    else if (!cpHits.length) h += `<div class="cpnote">No coins match.</div>`;
+    const el = $("cplist"); el.innerHTML = h; el.hidden = false; $("cpq").setAttribute("aria-expanded", "true");
+  }
+  function cpSearch() {
+    const q = $("cpq").value.trim(), ql = q.toLowerCase(), seq = ++cpSearchSeq;
+    clearTimeout(cpTimer);
+    const held = cpHeld();
+    if (!q) { cpRenderList(held.slice(0, 8), CP_POPULAR.filter(p => !held.some(a => a.cg === p.cg)), false); return; }
+    const local = held.filter(a => String(a.sym).toLowerCase().startsWith(ql) || cpName(a).toLowerCase().includes(ql)).slice(0, 6);
+    cpRenderList(local, [], true);
+    cpTimer = setTimeout(async () => {
+      let remote = [];
+      try {
+        const j = await fetchJSON(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`);
+        remote = (j.coins || []).filter(c => !local.some(a => a.cg === c.id)).slice(0, 15)
+          .map(c => ({ cg: c.id, sym: String(c.symbol).toUpperCase(), name: c.name, thumb: c.large || c.thumb, rank: c.market_cap_rank }));
+      } catch {
+        // offline or rate-limited: still let them chart whatever ticker they typed
+        if (/^[a-z0-9]{2,10}$/i.test(q)) remote = [{ cg: "", sym: q.toUpperCase(), name: q.toUpperCase() }];
+      }
+      if (seq === cpSearchSeq) cpRenderList(local, remote, false);
+    }, 250);
+  }
+  $("cpq").addEventListener("input", cpSearch);
+  $("cpq").addEventListener("focus", cpSearch);
+  $("cpq").addEventListener("keydown", e => {
+    const items = [...$("cplist").querySelectorAll("[data-cph]")];
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault(); if (!items.length) return;
+      cpIdx = (cpIdx + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+      items.forEach((b, i) => b.classList.toggle("on", i === cpIdx)); items[cpIdx].scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const c = cpHits[cpIdx >= 0 ? cpIdx : 0]; if (c) cpPick(c);
+    } else if (e.key === "Escape") { cpClose(); e.target.blur(); }
+  });
+  $("cplist").addEventListener("mousedown", e => e.preventDefault()); // keep focus so the click lands
+  $("cplist").addEventListener("click", e => { const b = e.target.closest("[data-cph]"); if (b) cpPick(cpHits[+b.dataset.cph]); });
+  $("cpq").addEventListener("blur", () => setTimeout(cpClose, 100));
+  $("cpchips").addEventListener("click", e => { const b = e.target.closest("[data-cpi]"); if (b) cpPick($("cpchips").$list[+b.dataset.cpi]); });
 
   // Transfers of one coin on one chain, across every tracked wallet that holds it there
   const coinTxMatch = (r, key, t) => {
@@ -2744,19 +2883,22 @@ html:not([data-page="tx"]) #txcard { display: none; }
   document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => {
     view = b.dataset.view; store.set("lw.view", view); render();
   }));
-  // Page tabs: Portfolio | Transactions (URL #transactions opens the Transactions tab directly)
+  // Page tabs: Portfolio | Transactions | Charts (URL #transactions / #charts opens that tab directly)
+  const PAGE_HASH = { tx: "#transactions", charts: "#charts" };
+  const hashPage = () => location.hash === "#transactions" ? "tx" : location.hash === "#charts" ? "charts" : "portfolio";
   function setPage(p, fromHash) {
-    if (p !== "tx") p = "portfolio";
+    if (!PAGE_HASH[p]) p = "portfolio";
     const was = document.documentElement.dataset.page;
     document.documentElement.dataset.page = p;
     document.querySelectorAll(".ptabs [data-page]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.page === p)));
     store.set("lw.page", p);
-    if (!fromHash) window.history.replaceState(null, "", p === "tx" ? "#transactions" : location.pathname + location.search);
+    if (!fromHash) window.history.replaceState(null, "", PAGE_HASH[p] || location.pathname + location.search);
     if (was && was !== p) { window.scrollTo(0, 0); if (p === "portfolio") render(); } // charts re-measure after being hidden
+    if (p === "charts") showChartPage();
   }
   document.querySelectorAll(".ptabs [data-page]").forEach(b => b.addEventListener("click", () => setPage(b.dataset.page)));
-  addEventListener("hashchange", () => setPage(location.hash === "#transactions" ? "tx" : "portfolio", true));
-  setPage(location.hash === "#transactions" ? "tx" : location.hash ? "portfolio" : store.get("lw.page", "portfolio"));
+  addEventListener("hashchange", () => setPage(hashPage(), true));
+  setPage(location.hash ? hashPage() : store.get("lw.page", "portfolio"));
 
   document.querySelectorAll("[data-mv]").forEach(b => b.addEventListener("click", () => {
     mvRange = b.dataset.mv; store.set("lw.mvr", mvRange); if (mvLast) renderMovers(...mvLast);
@@ -2776,6 +2918,7 @@ html:not([data-page="tx"]) #txcard { display: none; }
   $("theme").addEventListener("click", () => {
     theme = isDark() ? "light" : "dark"; store.set("lw.theme", theme); applyTheme();
     if (makeCharts()) render();
+    if (document.documentElement.dataset.page === "charts") cpMount(false); // recolour the coin chart
   });
   applyTheme();
 
